@@ -8,6 +8,17 @@ re-architecting. Multi-tenancy, authorization and auditing are foundational, not
 
 > See `AGENTS.md` for the execution protocol every contributor (human or AI) must follow.
 
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Home](docs/screenshots/01-home.png) | ![My Work](docs/screenshots/02-my-work.png) |
+| Home | My Work |
+| ![Tasks List](docs/screenshots/03-tasks-list.png) | ![Tasks Board](docs/screenshots/04-tasks-board.png) |
+| Tasks List | Tasks Board |
+| ![Task Edit](docs/screenshots/05-task-edit.png) | |
+| Task Edit | |
+
 ## Tech stack
 
 | Area | Technology |
