@@ -1,0 +1,94 @@
+<Solution>
+  <Folder Name="/apps/" />
+  <Folder Name="/apps/apphost/">
+    <Project Path="apps/apphost/Planvexa.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/apps/api/">
+    <Project Path="apps/api/Planvexa.Api/Planvexa.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/BuildingBlocks/">
+    <Project Path="src/BuildingBlocks/Planvexa.BuildingBlocks/Planvexa.BuildingBlocks.csproj" />
+  </Folder>
+  <Folder Name="/src/Database/">
+    <Project Path="src/Database/Planvexa.Database/Planvexa.Database.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Planvexa.Infrastructure/Planvexa.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Ai/">
+    <Project Path="src/Modules/Ai/Planvexa.Modules.Ai/Planvexa.Modules.Ai.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Audit/">
+    <Project Path="src/Modules/Audit/Planvexa.Modules.Audit/Planvexa.Modules.Audit.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Automations/">
+    <Project Path="src/Modules/Automations/Planvexa.Modules.Automations/Planvexa.Modules.Automations.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Chat/">
+    <Project Path="src/Modules/Chat/Planvexa.Modules.Chat/Planvexa.Modules.Chat.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Clips/">
+    <Project Path="src/Modules/Clips/Planvexa.Modules.Clips/Planvexa.Modules.Clips.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Whiteboards/">
+    <Project Path="src/Modules/Whiteboards/Planvexa.Modules.Whiteboards/Planvexa.Modules.Whiteboards.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Collaboration/">
+    <Project Path="src/Modules/Collaboration/Planvexa.Modules.Collaboration/Planvexa.Modules.Collaboration.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Documents/">
+    <Project Path="src/Modules/Documents/Planvexa.Modules.Documents/Planvexa.Modules.Documents.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Forms/">
+    <Project Path="src/Modules/Forms/Planvexa.Modules.Forms/Planvexa.Modules.Forms.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Governance/">
+    <Project Path="src/Modules/Governance/Planvexa.Modules.Governance/Planvexa.Modules.Governance.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/Planvexa.Modules.Identity/Planvexa.Modules.Identity.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Integrations/">
+    <Project Path="src/Modules/Integrations/Planvexa.Modules.Integrations/Planvexa.Modules.Integrations.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Goals/">
+    <Project Path="src/Modules/Goals/Planvexa.Modules.Goals/Planvexa.Modules.Goals.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Mobile/">
+    <Project Path="src/Modules/Mobile/Planvexa.Modules.Mobile/Planvexa.Modules.Mobile.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Notifications/">
+    <Project Path="src/Modules/Notifications/Planvexa.Modules.Notifications/Planvexa.Modules.Notifications.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Planning/">
+    <Project Path="src/Modules/Planning/Planvexa.Modules.Planning/Planvexa.Modules.Planning.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Reporting/">
+    <Project Path="src/Modules/Reporting/Planvexa.Modules.Reporting/Planvexa.Modules.Reporting.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Tenancy/">
+    <Project Path="src/Modules/Tenancy/Planvexa.Modules.Tenancy/Planvexa.Modules.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/TimeTracking/">
+    <Project Path="src/Modules/TimeTracking/Planvexa.Modules.TimeTracking/Planvexa.Modules.TimeTracking.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/WorkManagement/">
+    <Project Path="src/Modules/WorkManagement/Planvexa.Modules.WorkManagement/Planvexa.Modules.WorkManagement.csproj" />
+  </Folder>
+  <Folder Name="/src/SharedContracts/">
+    <Project Path="src/SharedContracts/Planvexa.SharedContracts/Planvexa.SharedContracts.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Architecture/">
+    <Project Path="tests/Architecture/Planvexa.ArchitectureTests/Planvexa.ArchitectureTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Integration/">
+    <Project Path="tests/Integration/Planvexa.IntegrationTests/Planvexa.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Unit/">
+    <Project Path="tests/Unit/Planvexa.UnitTests/Planvexa.UnitTests.csproj" />
+  </Folder>
+</Solution>
+

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Planvexa.BuildingBlocks</RootNamespace>
+    <AssemblyName>Planvexa.BuildingBlocks</AssemblyName>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+region                      = "us-east-1"
+vpc_id                      = "vpc-xxxxxxxx"
+subnet_ids                  = ["subnet-aaaaaaaa", "subnet-bbbbbbbb"]
+ingress_security_group_ids  = ["sg-xxxxxxxx"] # e.g. your EKS cluster/node security group
+bucket_name                 = "planvexa-prod-files"
+db_identifier               = "planvexa-prod"

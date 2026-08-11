@@ -1,0 +1,108 @@
+# Default values for the Planvexa chart.
+#
+# This chart deploys the API and web app ONLY. It does not bundle PostgreSQL or Keycloak as
+# sub-charts -- Planvexa never manages PostgreSQL (see AGENTS.md), and Keycloak is a shared identity
+# provider you likely run/manage independently of any one app. Provision both separately (see
+# infrastructure/opentofu for an example of provisioning the storage/database side, or use your
+# cloud's managed Postgres and the official Keycloak Helm chart) and point this chart at them via the
+# values below.
+
+api:
+  image:
+    # Built from infrastructure/docker/api.Dockerfile. Push it to a registry this cluster can pull from.
+    repository: planvexa-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  containerPort: 8080 # matches ASPNETCORE_URLS baked into the image; do not change without rebuilding it
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: "1", memory: 512Mi }
+
+  # Non-secret configuration, rendered into a ConfigMap and loaded via envFrom. Values here match
+  # the config keys read by apps/api/Planvexa.Api/appsettings.json / Program.cs.
+  config:
+    aspnetcoreEnvironment: Production
+    keycloakAuthority: "" # e.g. https://keycloak.example.com/realms/planvexa
+    keycloakAudience: "planvexa-api"
+    otlpEndpoint: "" # e.g. http://otel-collector.observability.svc:4318 -- empty disables export, same as appsettings.json's default
+    smtpHost: ""
+    smtpPort: "587"
+    smtpFrom: "no-reply@planvexa.example"
+    runDbUpOnStartup: "true" # DbUp is forward-only; see docs/runbooks/upgrade.md before disabling this on upgrade
+    # Demo content (fixed owner/admin/member/guest logins with a well-known password, sample tasks,
+    # chat, documents). Distinct from the first-run bootstrap below, and must stay false in
+    # production -- see docs/runbooks/install.md.
+    seedDevelopmentData: "false"
+
+    # First-run bootstrap: on a database with no workspaces, the API creates one admin user and one
+    # workspace (built-in roles, starter space/list) so a fresh install is usable immediately. Runs
+    # once and then self-skips. adminSubject must match the subject of the Keycloak account you
+    # create for this admin -- scripts/keycloak-bootstrap.ps1 creates one from the same values when
+    # run with -IncludeDevelopmentUsers:$false.
+    bootstrap:
+      enabled: "true"
+      adminSubject: "planvexa-admin"
+      adminEmail: "admin@planvexa.example"
+      adminDisplayName: "Planvexa Admin"
+      workspaceName: "Planvexa"
+
+  # Secret values are NEVER inlined here. Create the Secret yourself (kubectl, external-secrets,
+  # Sealed Secrets, your cloud's secret manager, ...) with at least these keys, then point the chart
+  # at its name:
+  #   ConnectionStrings__Planvexa
+  #   ConnectionStrings__PlanvexaMaintenance   (optional -- falls back to the app connection if unset)
+  #   FileStorage__S3__AccessKey / FileStorage__S3__SecretKey (if FileStorage__Provider=S3)
+  existingSecretName: "planvexa-api-secrets"
+
+  livenessProbe:
+    path: /health/live
+  readinessProbe:
+    path: /health/ready
+
+web:
+  image:
+    # Built from infrastructure/docker/web.Dockerfile.
+    repository: planvexa-web
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+  containerPort: 3000
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+  # Matches the runtime env vars apps/apphost/AppHost.cs passes the web container in dev -- the
+  # Next.js standalone server reads these at request time, they are not baked in at image build time.
+  config:
+    apiBaseUrl: "http://planvexa-api" # server-side (BFF) base URL; defaults to this chart's own api Service name
+    nextPublicApiBaseUrl: "" # public API base URL as seen by the browser, if different from the Ingress host
+    collabWsUrl: "" # ws(s):// URL of apps/collaboration, if deployed; leave empty to disable realtime collab
+    keycloakUrl: "" # e.g. https://keycloak.example.com
+    keycloakRealm: "planvexa"
+    keycloakWebClientId: "planvexa-web"
+    webUrl: "" # public URL of this web app, e.g. https://app.example.com
+
+  # Must contain PLANVEXA_WEB_SESSION_SECRET -- session.ts throws on startup without it.
+  existingSecretName: "planvexa-web-secrets"
+
+  livenessProbe:
+    path: /login
+  readinessProbe:
+    path: /login
+
+ingress:
+  enabled: true
+  className: "" # e.g. nginx, traefik -- left generic so this works with common ingress controllers
+  annotations: {}
+  # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: "planvexa.example.com"
+  tls:
+    enabled: false
+    secretName: "planvexa-tls"

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Planvexa.SharedContracts</RootNamespace>
+    <AssemblyName>Planvexa.SharedContracts</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Planvexa.BuildingBlocks\Planvexa.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>

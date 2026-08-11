@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Planvexa.Modules.Goals</RootNamespace>
+    <AssemblyName>Planvexa.Modules.Goals</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\Planvexa.BuildingBlocks\Planvexa.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\SharedContracts\Planvexa.SharedContracts\Planvexa.SharedContracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+  </ItemGroup>
+
+</Project>

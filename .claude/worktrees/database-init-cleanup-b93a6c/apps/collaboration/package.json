@@ -1,0 +1,25 @@
+{
+  "name": "@planvexa/collaboration",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Realtime collaborative document editing (Yjs/Hocuspocus), extended to also serve Whiteboard rooms. Every WebSocket connection is authorized against the .NET API's per-document/per-whiteboard permission check before being admitted to a room — see src/server.ts onAuthenticate.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hocuspocus/extension-database": "4.5.0",
+    "@hocuspocus/server": "4.5.0",
+    "pg": "8.22.0",
+    "yjs": "13.6.32"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/pg": "8.20.4",
+    "tsx": "4.23.9",
+    "typescript": "^5"
+  }
+}

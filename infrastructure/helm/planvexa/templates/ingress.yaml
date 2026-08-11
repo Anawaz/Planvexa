@@ -1,0 +1,71 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "planvexa.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # Direct API access -- used by the mobile client and any caller that isn't the web BFF
+          # (which talks to the api Service in-cluster instead, see web ConfigMap's API_BASE_URL).
+          # Also covers the SignalR hub, health probes (anonymous, see Program.cs), and OpenAPI/Scalar docs.
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.api.fullname" . }}
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /hubs
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.api.fullname" . }}
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.api.fullname" . }}
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /scalar
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.api.fullname" . }}
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /openapi
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.api.fullname" . }}
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "planvexa.web.fullname" . }}
+                port:
+                  number: {{ .Values.web.service.port }}
+{{- end }}

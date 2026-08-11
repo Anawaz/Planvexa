@@ -1,0 +1,46 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{cs,csx}]
+indent_size = 4
+dotnet_sort_system_directives_first = true
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_using_directive_placement = inside_namespace:silent
+dotnet_style_qualification_for_field = false:suggestion
+
+# Analyzer rules intentionally relaxed for this application codebase.
+dotnet_diagnostic.IDE0065.severity = none   # allow usings inside file-scoped namespace
+dotnet_diagnostic.CA1062.severity = none    # public parameter null-checks (guards used where needed)
+dotnet_diagnostic.CA1716.severity = none    # type/member names vs VB reserved keywords (not targeting VB)
+dotnet_diagnostic.CA1000.severity = none    # static members on generic types (Result<T> factory pattern)
+dotnet_diagnostic.CA2007.severity = none    # ConfigureAwait not required in app code
+dotnet_diagnostic.CA1859.severity = none
+dotnet_diagnostic.CA1819.severity = none
+
+[*.{js,jsx,ts,tsx,json,css,scss,yml,yaml,md}]
+indent_size = 2
+
+[*.{csproj,props,targets,xml}]
+indent_size = 2
+
+[*.{sln}]
+indent_style = tab
+
+# EF Core generated migrations — treat as generated code, don't enforce style/analysis.
+[**/Migrations/*.cs]
+generated_code = true
+dotnet_diagnostic.IDE0161.severity = none
+dotnet_diagnostic.IDE0065.severity = none
+dotnet_diagnostic.IDE0055.severity = none
+
+# Test projects — relax analyzers that add noise without value for tests.
+[tests/**.cs]
+dotnet_diagnostic.xUnit1051.severity = none
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none

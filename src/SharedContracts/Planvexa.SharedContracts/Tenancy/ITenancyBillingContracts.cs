@@ -1,0 +1,1 @@
+namespace Planvexa.SharedContracts.Tenancy;

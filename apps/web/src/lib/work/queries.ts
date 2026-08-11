@@ -1,0 +1,34 @@
+import type { ActivityFeedQuery, ListTasksFilters } from "./types";
+
+export const workKeys = {
+  all: ["work"] as const,
+  spaces: () => [...workKeys.all, "spaces"] as const,
+  folders: (spaceId: string) => [...workKeys.all, "spaces", spaceId, "folders"] as const,
+  lists: (spaceId: string) => [...workKeys.all, "spaces", spaceId, "lists"] as const,
+  list: (listId: string) => [...workKeys.all, "lists", listId] as const,
+  statusSchemes: () => [...workKeys.all, "status-schemes"] as const,
+  tasksAll: () => [...workKeys.all, "tasks"] as const,
+  tasksRoot: (listId: string) => [...workKeys.tasksAll(), listId] as const,
+  tasks: (listId: string, filters: ListTasksFilters = {}) =>
+    [...workKeys.tasksRoot(listId), filters] as const,
+  task: (taskId: string) => [...workKeys.all, "task", taskId] as const,
+  attachments: (taskId: string) => [...workKeys.all, "task", taskId, "attachments"] as const,
+  reminders: (taskId: string) => [...workKeys.all, "task", taskId, "reminders"] as const,
+  myTasks: (workspaceId?: string) => [...workKeys.all, "my-tasks", workspaceId ?? null] as const,
+  createdByMeTasks: (workspaceId?: string) => [...workKeys.all, "created-by-me-tasks", workspaceId ?? null] as const,
+  watchingTasks: (workspaceId?: string) => [...workKeys.all, "watching-tasks", workspaceId ?? null] as const,
+  myWorkPreferences: () => [...workKeys.all, "my-work-preferences"] as const,
+  tags: () => [...workKeys.all, "tags"] as const,
+  customFields: () => [...workKeys.all, "custom-fields"] as const,
+  listCustomFields: (listId: string) => [...workKeys.all, "lists", listId, "custom-fields"] as const,
+  favorites: () => [...workKeys.all, "favorites"] as const,
+  recentItems: () => [...workKeys.all, "recent-items"] as const,
+  templates: () => [...workKeys.all, "templates"] as const,
+  views: () => [...workKeys.all, "views"] as const,
+  taskTypes: () => [...workKeys.all, "task-types"] as const,
+  estimate: (taskId: string) => [...workKeys.all, "task", taskId, "estimate"] as const,
+  activityRoot: () => [...workKeys.all, "activity"] as const,
+  activity: (query: ActivityFeedQuery = {}) => [...workKeys.activityRoot(), query] as const,
+  locations: (listId: string, definitionId: string) =>
+    [...workKeys.all, "lists", listId, "locations", definitionId] as const,
+};

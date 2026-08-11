@@ -1,0 +1,25 @@
+Planvexa has been deployed.
+
+Before this deployment can serve traffic, make sure:
+
+1. The Secrets referenced by values.api.existingSecretName ({{ .Values.api.existingSecretName }}) and
+   values.web.existingSecretName ({{ .Values.web.existingSecretName }}) exist in this namespace.
+   The API secret needs at least ConnectionStrings__Planvexa; the web secret needs
+   PLANVEXA_WEB_SESSION_SECRET. See infrastructure/helm/README.md.
+2. Keycloak (values.api.config.keycloakAuthority / values.web.config.keycloakUrl) and PostgreSQL
+   (the connection string in the API secret) are reachable from this cluster -- neither is bundled
+   by this chart.
+3. On first install, the API runs DbUp against an EMPTY database on startup
+   (Database__RunDbUpOnStartup=true). See docs/runbooks/install.md before installing into a database
+   that already has Planvexa data, and docs/runbooks/upgrade.md before upgrading an existing release.
+
+{{- if .Values.ingress.enabled }}
+
+Web app:  http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}
+API:      http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/api
+{{- else }}
+
+Ingress is disabled (values.ingress.enabled=false). Reach the services in-cluster:
+  {{ include "planvexa.web.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.web.service.port }}
+  {{ include "planvexa.api.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.api.service.port }}
+{{- end }}

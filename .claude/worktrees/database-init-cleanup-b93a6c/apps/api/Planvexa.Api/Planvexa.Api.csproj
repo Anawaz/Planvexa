@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Planvexa.Api</RootNamespace>
+    <AssemblyName>Planvexa.Api</AssemblyName>
+    <UserSecretsId>planvexa-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Planvexa.BuildingBlocks\Planvexa.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\src\SharedContracts\Planvexa.SharedContracts\Planvexa.SharedContracts.csproj" />
+    <ProjectReference Include="..\..\..\src\Infrastructure\Planvexa.Infrastructure\Planvexa.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Database\Planvexa.Database\Planvexa.Database.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Identity\Planvexa.Modules.Identity\Planvexa.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Audit\Planvexa.Modules.Audit\Planvexa.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Tenancy\Planvexa.Modules.Tenancy\Planvexa.Modules.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\WorkManagement\Planvexa.Modules.WorkManagement\Planvexa.Modules.WorkManagement.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Collaboration\Planvexa.Modules.Collaboration\Planvexa.Modules.Collaboration.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Notifications\Planvexa.Modules.Notifications\Planvexa.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\TimeTracking\Planvexa.Modules.TimeTracking\Planvexa.Modules.TimeTracking.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Planning\Planvexa.Modules.Planning\Planvexa.Modules.Planning.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Reporting\Planvexa.Modules.Reporting\Planvexa.Modules.Reporting.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Documents\Planvexa.Modules.Documents\Planvexa.Modules.Documents.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Forms\Planvexa.Modules.Forms\Planvexa.Modules.Forms.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Automations\Planvexa.Modules.Automations\Planvexa.Modules.Automations.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Integrations\Planvexa.Modules.Integrations\Planvexa.Modules.Integrations.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Governance\Planvexa.Modules.Governance\Planvexa.Modules.Governance.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Ai\Planvexa.Modules.Ai\Planvexa.Modules.Ai.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Mobile\Planvexa.Modules.Mobile\Planvexa.Modules.Mobile.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Chat\Planvexa.Modules.Chat\Planvexa.Modules.Chat.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="AWSSDK.S3" />
+  </ItemGroup>
+
+</Project>
+

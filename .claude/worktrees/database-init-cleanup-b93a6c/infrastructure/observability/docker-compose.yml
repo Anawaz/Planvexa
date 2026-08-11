@@ -1,0 +1,109 @@
+# Optional observability stack: Prometheus + Grafana + Loki/Promtail, plus the small helper
+# containers that feed them (an OpenTelemetry Collector to turn the API's OTLP export into a
+# Prometheus-scrapeable endpoint, postgres_exporter for Postgres metrics, blackbox_exporter for
+# "is it up" probes). Not required for local development -- dev tracing already works via Jaeger
+# (see docker-compose.yml / apps/apphost/AppHost.cs). This is the addable layer for self-hosters who
+# want dashboards, log aggregation and alerting. See README.md in this directory for how to use it.
+#
+# Standalone on purpose: the repo's main docker-compose.yml deliberately excludes PostgreSQL, but
+# that constraint is unrelated to this file -- this is a normal, independent compose project.
+#
+#   docker compose -f infrastructure/observability/docker-compose.yml up -d
+services:
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheusdata:/prometheus
+    ports:
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/healthy >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.114.0
+    command: ["--config=/etc/otel-collector/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector/config.yaml:ro
+    ports:
+      - "4318:4318" # OTLP http -- point OpenTelemetry:OtlpEndpoint / OTEL_EXPORTER_OTLP_ENDPOINT here
+      - "4319:4317" # OTLP grpc, published on 4319 to avoid clashing with the dev stack's Jaeger (4317)
+      - "8889:8889" # Prometheus scrape endpoint, consumed by the `otel-collector` Prometheus job
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # so the traces pipeline can reach a host-run Jaeger on Linux
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      # Points at YOUR PostgreSQL instance -- Planvexa never runs Postgres itself (see AGENTS.md).
+      # postgres_exporter needs its own read-only login; reuse the app role only for local testing.
+      DATA_SOURCE_NAME: ${POSTGRES_EXPORTER_DSN:-postgresql://planvexa:planvexa@host.docker.internal:5432/planvexa?sslmode=disable}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9187:9187"
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    volumes:
+      - ./blackbox/config.yaml:/etc/blackbox_exporter/config.yaml:ro
+    ports:
+      - "9115:9115"
+
+  loki:
+    image: grafana/loki:3.3.0
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - lokidata:/loki
+    ports:
+      - "3100:3100"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3100/ready >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  promtail:
+    image: grafana/promtail:3.3.0
+    command: ["-config.file=/etc/promtail/promtail-config.yaml"]
+    volumes:
+      - ./promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+volumes:
+  prometheusdata:
+  grafanadata:
+  lokidata:

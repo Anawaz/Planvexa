@@ -1,0 +1,46 @@
+# Prometheus scrape + rule configuration for the optional Planvexa observability stack.
+#
+# The `blackbox-http` job's targets (http://api:8080/... and http://web:3000/...) are PLACEHOLDERS --
+# they assume containers named `api` and `web` on this compose network. This stack ships standalone
+# from the API/web containers (which run via Aspire in dev, or your own compose/Helm deployment in
+# production), so replace those targets with whatever hostname or URL actually reaches your API/web
+# from wherever you run this stack.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Metrics forwarded from the API via the OpenTelemetry Collector (see otel-collector/config.yaml).
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]
+
+  # Postgres connection/query metrics. Requires postgres-exporter's DATA_SOURCE_NAME (see
+  # docker-compose.yml) to point at your PostgreSQL instance -- Planvexa never runs Postgres itself.
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # "Is the service reachable" probes -- see alert PlanvexaServiceUnreachable in rules/alerts.yml.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://api:8080/health/live
+          - http://web:3000/login
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

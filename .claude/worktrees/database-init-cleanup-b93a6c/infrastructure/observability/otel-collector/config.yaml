@@ -1,0 +1,41 @@
+# OpenTelemetry Collector: receives OTLP (traces + metrics) from the API, exposes metrics on a
+# Prometheus-scrapeable endpoint, and forwards traces to Jaeger. This exists because the API's
+# OpenTelemetry pipeline (apps/api/Planvexa.Api/Program.cs) only ever pushes OTLP -- it has no
+# Prometheus /metrics endpoint of its own -- so something has to receive that OTLP stream and expose
+# a pull endpoint. The collector is that something.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # Best-effort: if Jaeger isn't reachable (this stack is used standalone, without the main dev
+  # stack's Jaeger container) this exporter just logs connection errors and retries -- it does not
+  # take down the metrics pipeline. host.docker.internal resolves on Docker Desktop (Windows/Mac)
+  # natively; the extra_hosts entry in docker-compose.yml adds it on Linux too.
+  otlp/jaeger:
+    endpoint: host.docker.internal:4317
+    tls:
+      insecure: true
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

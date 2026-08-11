@@ -1,0 +1,416 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: planvexa
+          POSTGRES_PASSWORD: planvexa
+          POSTGRES_DB: planvexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U planvexa -d planvexa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ASPNETCORE_ENVIRONMENT: Test
+      ConnectionStrings__Planvexa: Host=localhost;Port=5432;Database=planvexa;Username=planvexa;Password=planvexa
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj', '**/*.vbproj', '**/packages.lock.json', 'Directory.Packages.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release /warnaserror
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: ignore
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install dependencies
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        continue-on-error: false
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Lint
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        continue-on-error: false
+        working-directory: apps/web
+        run: npm run lint
+
+      - name: Typecheck
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        continue-on-error: false
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Test
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        continue-on-error: false
+        working-directory: apps/web
+        run: npm run test
+
+      - name: Build
+        if: ${{ hashFiles('apps/web/package-lock.json') != '' }}
+        continue-on-error: false
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Skip frontend
+        if: ${{ hashFiles('apps/web/package-lock.json') == '' }}
+        run: echo "Skipping frontend CI because apps/web/package-lock.json is absent."
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: planvexa
+          POSTGRES_PASSWORD: planvexa
+          POSTGRES_DB: planvexa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U planvexa -d planvexa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGPASSWORD: planvexa
+      # Keycloak bootstrap (scripts/keycloak-bootstrap.ps1 reads these).
+      KEYCLOAK_URL: http://localhost:8081
+      KEYCLOAK_ADMIN_USER: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_REALM: planvexa
+      KEYCLOAK_WEB_CLIENT_ID: planvexa-web
+      KEYCLOAK_API_CLIENT_ID: planvexa-api
+      # API.
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://localhost:8080
+      ConnectionStrings__Planvexa: Host=localhost;Port=5432;Database=planvexa;Username=planvexa;Password=planvexa
+      # No BYPASSRLS role in CI; cross-tenant background work is not what the E2E suite exercises.
+      ConnectionStrings__PlanvexaMaintenance: Host=localhost;Port=5432;Database=planvexa;Username=planvexa;Password=planvexa
+      Database__RunDbUpOnStartup: "true"
+      Database__SeedDevelopmentData: "true"
+      Keycloak__Authority: http://localhost:8081/realms/planvexa
+      Keycloak__Audience: planvexa-api
+      # No Jaeger/Mailpit here: empty values stop the exporters from retrying a dead endpoint.
+      OpenTelemetry__OtlpEndpoint: ""
+      Smtp__Host: ""
+      # Web. NEXT_PUBLIC_* are inlined at build time, so they must be set before `npm run build`.
+      PLANVEXA_WEB_URL: http://localhost:3000
+      PLANVEXA_WEB_SESSION_SECRET: e2e-ci-session-secret-not-a-real-key
+      API_BASE_URL: http://localhost:8080
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+      NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8081
+      NEXT_PUBLIC_KEYCLOAK_REALM: planvexa
+      NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: planvexa-web
+      # The dev stack is assembled by the steps below; the global setup must not try to start it.
+      PLANVEXA_E2E_ASSUME_UP: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj', '**/*.vbproj', '**/packages.lock.json', 'Directory.Packages.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Create Keycloak database
+        run: psql -h localhost -U planvexa -d planvexa -c "CREATE DATABASE keycloak;"
+
+      - name: Start Keycloak
+        run: |
+          docker run -d --name keycloak --network host \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
+            -e KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
+            -e KC_HTTP_PORT=8081 \
+            -e KC_DB=postgres \
+            -e KC_DB_URL_HOST=localhost \
+            -e KC_DB_URL_PORT=5432 \
+            -e KC_DB_URL_DATABASE=keycloak \
+            -e KC_DB_USERNAME=planvexa \
+            -e KC_DB_PASSWORD=planvexa \
+            quay.io/keycloak/keycloak:26.4 start-dev
+
+      - name: Wait for Keycloak
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8081/realms/master > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          docker logs keycloak
+          echo "Keycloak did not become ready." >&2
+          exit 1
+
+      - name: Bootstrap Keycloak realm, clients and dev users
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/keycloak-bootstrap.ps1
+
+      - name: Build API
+        run: dotnet build apps/api/Planvexa.Api/Planvexa.Api.csproj --configuration Release
+
+      - name: Start API
+        run: |
+          nohup dotnet run --project apps/api/Planvexa.Api/Planvexa.Api.csproj \
+            --configuration Release --no-build > api.log 2>&1 &
+          echo "API starting; DbUp and the development seed run on startup."
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/health/ready > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          tail -n 200 api.log
+          echo "API did not become ready." >&2
+          exit 1
+
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Build web
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Start web
+        working-directory: apps/web
+        run: |
+          # `output: "standalone"` emits server.js only; static assets are copied in by hand
+          # (the container image does the same, see infrastructure/docker/web.Dockerfile).
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+          PORT=3000 HOSTNAME=0.0.0.0 NODE_OPTIONS=--max-http-header-size=65536 nohup node .next/standalone/server.js > ../../web.log 2>&1 &
+          echo "Web starting on http://localhost:3000."
+
+      - name: Wait for web
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/login > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          tail -n 200 web.log
+          echo "Web did not become ready." >&2
+          exit 1
+
+      - name: Install Playwright browser
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright suite
+        working-directory: apps/web
+        run: npx playwright test
+
+      # DAST baseline pass (OWASP ZAP, Apache-2.0) against the full stack already running for Playwright
+      # above (Keycloak + API + web, seeded dev data) — a passive scan only (no active/attack rules), which
+      # is what keeps this reliably green rather than permanently red on a stack that hasn't been
+      # security-audited yet. continue-on-error so a ZAP finding never blocks the pipeline; the report is
+      # uploaded for review instead of gating merges.
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        continue-on-error: true
+        with:
+          target: "http://localhost:3000"
+          cmd_options: "-a"
+          fail_action: false
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/e2e/report
+            apps/web/test-results
+            api.log
+            web.log
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/api.Dockerfile
+          push: false
+          load: true
+          tags: planvexa-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/web.Dockerfile
+          push: false
+          load: true
+          tags: planvexa-web:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Container vulnerability scanning (Trivy, Apache-2.0). Non-blocking: findings are surfaced in the
+      # GitHub Security tab (SARIF upload) rather than failing the build, since the base images (.NET
+      # runtime, node:alpine) carry upstream CVEs this repo does not control and a hard-fail here would go
+      # permanently red rather than being actionable. Scoped to CRITICAL/HIGH to keep the report useful.
+      - name: Scan API image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: planvexa-api:ci
+          format: sarif
+          output: trivy-api.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Scan web image (Trivy)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: planvexa-web:ci
+          format: sarif
+          output: trivy-web.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+      - name: Upload Trivy results to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .
+          category: trivy-container-scan
+
+      # SBOM generation (anchore/sbom-action wraps syft, Apache-2.0) for both published images. Uploaded
+      # as build artifacts rather than a registry attestation since these images are not pushed anywhere.
+      - name: Generate API image SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: planvexa-api:ci
+          format: spdx-json
+          output-file: sbom-api.spdx.json
+
+      - name: Generate web image SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: planvexa-web:ci
+          format: spdx-json
+          output-file: sbom-web.spdx.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom-api.spdx.json
+            sbom-web.spdx.json
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency review
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/dependency-review-action@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj', '**/*.vbproj', '**/packages.lock.json', 'Directory.Packages.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Check vulnerable packages
+        run: dotnet list package --vulnerable --include-transitive

@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Planvexa.Infrastructure</RootNamespace>
+    <AssemblyName>Planvexa.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Planvexa.BuildingBlocks\Planvexa.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\SharedContracts\Planvexa.SharedContracts\Planvexa.SharedContracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Planvexa.Modules.Identity\Planvexa.Modules.Identity.csproj" />
+    <ProjectReference Include="..\..\Modules\Audit\Planvexa.Modules.Audit\Planvexa.Modules.Audit.csproj" />
+    <ProjectReference Include="..\..\Modules\Tenancy\Planvexa.Modules.Tenancy\Planvexa.Modules.Tenancy.csproj" />
+    <ProjectReference Include="..\..\Modules\WorkManagement\Planvexa.Modules.WorkManagement\Planvexa.Modules.WorkManagement.csproj" />
+    <ProjectReference Include="..\..\Modules\Collaboration\Planvexa.Modules.Collaboration\Planvexa.Modules.Collaboration.csproj" />
+    <ProjectReference Include="..\..\Modules\Notifications\Planvexa.Modules.Notifications\Planvexa.Modules.Notifications.csproj" />
+    <ProjectReference Include="..\..\Modules\TimeTracking\Planvexa.Modules.TimeTracking\Planvexa.Modules.TimeTracking.csproj" />
+    <ProjectReference Include="..\..\Modules\Planning\Planvexa.Modules.Planning\Planvexa.Modules.Planning.csproj" />
+    <ProjectReference Include="..\..\Modules\Reporting\Planvexa.Modules.Reporting\Planvexa.Modules.Reporting.csproj" />
+    <ProjectReference Include="..\..\Modules\Documents\Planvexa.Modules.Documents\Planvexa.Modules.Documents.csproj" />
+    <ProjectReference Include="..\..\Modules\Forms\Planvexa.Modules.Forms\Planvexa.Modules.Forms.csproj" />
+    <ProjectReference Include="..\..\Modules\Automations\Planvexa.Modules.Automations\Planvexa.Modules.Automations.csproj" />
+    <ProjectReference Include="..\..\Modules\Integrations\Planvexa.Modules.Integrations\Planvexa.Modules.Integrations.csproj" />
+    <ProjectReference Include="..\..\Modules\Governance\Planvexa.Modules.Governance\Planvexa.Modules.Governance.csproj" />
+    <ProjectReference Include="..\..\Modules\Ai\Planvexa.Modules.Ai\Planvexa.Modules.Ai.csproj" />
+    <ProjectReference Include="..\..\Modules\Mobile\Planvexa.Modules.Mobile\Planvexa.Modules.Mobile.csproj" />
+    <ProjectReference Include="..\..\Modules\Chat\Planvexa.Modules.Chat\Planvexa.Modules.Chat.csproj" />
+    <ProjectReference Include="..\..\Modules\Goals\Planvexa.Modules.Goals\Planvexa.Modules.Goals.csproj" />
+    <ProjectReference Include="..\..\Modules\Whiteboards\Planvexa.Modules.Whiteboards\Planvexa.Modules.Whiteboards.csproj" />
+    <ProjectReference Include="..\..\Modules\Clips\Planvexa.Modules.Clips\Planvexa.Modules.Clips.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+  </ItemGroup>
+
+</Project>

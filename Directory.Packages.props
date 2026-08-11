@@ -1,0 +1,93 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!--
+    Central Package Management.
+    Every dependency added here MUST be documented in docs/architecture/dependencies.md
+    with its purpose and licence (AGENTS.md rule 15).
+  -->
+  <ItemGroup Label="Persistence">
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+    <PackageVersion Include="dbup-core" Version="6.1.1" />
+    <PackageVersion Include="dbup-postgresql" Version="6.1.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="Web / Hosting">
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+    <PackageVersion Include="MessagePack" Version="3.1.8" />
+    <!-- Transitive pin: patch GHSA-v5pm-xwqc-g5wc (stack overflow on circular $ref) in Microsoft.OpenApi. -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.7.5" />
+  </ItemGroup>
+
+  <ItemGroup Label="Validation">
+    <PackageVersion Include="FluentValidation" Version="12.1.1" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+  </ItemGroup>
+
+  <!--
+    PDFsharp (MIT license, empira Software GmbH) — PDF export (Dashboard/Portfolio summary).
+    Verified current terms before adding (AGENTS.md rule 15): plain MIT, no revenue threshold, no
+    dual-licensing tier (unlike QuestPDF, which moved to a source-available "Community License" with a
+    $1M annual gross revenue eligibility cap in 2026 — not usable here as an unconditionally permissive
+    dependency). PDFsharp is the minimum needed: hand-rolling PDF binary output is not reasonable (the
+    design brief agrees), and no PDF-capable package already exists in this repo.
+  -->
+  <ItemGroup Label="Documents">
+    <PackageVersion Include="PDFsharp" Version="6.2.4" />
+  </ItemGroup>
+
+  <ItemGroup Label="Caching">
+  </ItemGroup>
+
+  <!--
+    AWSSDK.S3 (Apache-2.0, Amazon.com) — S3-compatible object storage (IFileStorage), the
+    standard .NET client for S3 and S3-compatible providers (MinIO for local dev, any real S3-compatible
+    provider in production). Also used for pre-signed upload/download URLs (native SDK
+    feature, GetPreSignedURL). No alternative already exists in this repo for object storage.
+  -->
+  <ItemGroup Label="Storage">
+    <PackageVersion Include="AWSSDK.S3" Version="4.0.101.7" />
+    <!-- Transitive pin: AWSSDK.S3's own dependency resolves an AWSSDK.Core with a known low-severity
+         advisory (GHSA-9cvc-h2w8-phrp); pinned to the latest patched release. -->
+    <PackageVersion Include="AWSSDK.Core" Version="4.0.100.9" />
+  </ItemGroup>
+
+  <ItemGroup Label="Observability">
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Testing">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
+    <!-- Testcontainers.Minio (MIT, same publisher/version line as Testcontainers.PostgreSql above) —
+         a real S3-compatible storage round-trip integration test against a MinIO
+         container, exactly like PlanvexaFixture already does for Postgres. -->
+    <PackageVersion Include="Testcontainers.Minio" Version="4.13.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.10" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>
+
+
+
+
+
+
+

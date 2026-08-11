@@ -1,0 +1,33 @@
+# Build outputs
+**/bin
+**/obj
+**/node_modules
+**/.next
+**/out
+TestResults
+**/*.trx
+coverage
+apps/web/tsconfig.tsbuildinfo
+
+# VCS / IDE
+.git
+.github
+.vs
+.idea
+.claude
+
+# Local runtime state (never bake into an image)
+.run
+.data
+App_Data
+.env
+.env.*
+!.env.example
+
+# Docs (not needed to build; keep NuGet.config + Directory.*.props!)
+docs
+*.md
+!NOTICE
+!ADDITIONAL_TERMS.md
+!TRADEMARKS.md
+!THIRD-PARTY-NOTICES.md

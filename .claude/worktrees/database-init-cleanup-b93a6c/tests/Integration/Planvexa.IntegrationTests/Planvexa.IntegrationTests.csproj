@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Planvexa.IntegrationTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Minio" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\apps\api\Planvexa.Api\Planvexa.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\Infrastructure\Planvexa.Infrastructure\Planvexa.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\src\Database\Planvexa.Database\Planvexa.Database.csproj" />
+    <ProjectReference Include="..\..\..\src\Modules\Tenancy\Planvexa.Modules.Tenancy\Planvexa.Modules.Tenancy.csproj" />
+    <ProjectReference Include="..\..\..\src\BuildingBlocks\Planvexa.BuildingBlocks\Planvexa.BuildingBlocks.csproj" />
+  </ItemGroup>
+
+</Project>
+

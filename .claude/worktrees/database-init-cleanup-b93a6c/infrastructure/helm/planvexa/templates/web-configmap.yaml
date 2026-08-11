@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "planvexa.web.fullname" . }}-config
+  labels:
+    {{- include "planvexa.web.selectorLabels" . | nindent 4 }}
+data:
+  NODE_ENV: "production"
+  API_BASE_URL: {{ .Values.web.config.apiBaseUrl | quote }}
+  NEXT_PUBLIC_API_BASE_URL: {{ .Values.web.config.nextPublicApiBaseUrl | quote }}
+  NEXT_PUBLIC_COLLAB_WS_URL: {{ .Values.web.config.collabWsUrl | quote }}
+  NEXT_PUBLIC_KEYCLOAK_URL: {{ .Values.web.config.keycloakUrl | quote }}
+  NEXT_PUBLIC_KEYCLOAK_REALM: {{ .Values.web.config.keycloakRealm | quote }}
+  NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: {{ .Values.web.config.keycloakWebClientId | quote }}
+  KEYCLOAK_URL: {{ .Values.web.config.keycloakUrl | quote }}
+  KEYCLOAK_REALM: {{ .Values.web.config.keycloakRealm | quote }}
+  KEYCLOAK_WEB_CLIENT_ID: {{ .Values.web.config.keycloakWebClientId | quote }}
+  PLANVEXA_WEB_URL: {{ .Values.web.config.webUrl | quote }}

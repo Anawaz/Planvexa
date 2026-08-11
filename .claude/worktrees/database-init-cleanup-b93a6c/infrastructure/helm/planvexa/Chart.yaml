@@ -1,0 +1,6 @@
+apiVersion: v2
+name: planvexa
+description: Deploys the Planvexa API and web app to Kubernetes (Deployments, Services, Ingress).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

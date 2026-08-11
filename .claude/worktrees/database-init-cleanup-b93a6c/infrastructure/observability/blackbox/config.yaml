@@ -1,0 +1,9 @@
+# Default blackbox_exporter module set is sufficient (http_2xx ships built in), but the file must
+# exist for the container's --config.file flag, and pinning it lets us document intent.
+modules:
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_status_codes: [200, 204]
+      method: GET

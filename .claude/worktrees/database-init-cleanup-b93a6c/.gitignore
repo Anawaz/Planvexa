@@ -1,0 +1,49 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+artifacts/
+TestResults/
+*.trx
+coverage/
+*.coverage
+*.coveragexml
+
+# Rider / VS
+.idea/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp.*
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.key
+appsettings.*.local.json
+secrets.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Docker volumes / local data
+.data/
+.run/
+
+# Local attachment blobs (LocalDiskFileStorage default root)
+App_Data/

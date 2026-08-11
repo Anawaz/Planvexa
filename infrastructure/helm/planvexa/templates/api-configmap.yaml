@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "planvexa.api.fullname" . }}-config
+  labels:
+    {{- include "planvexa.api.selectorLabels" . | nindent 4 }}
+data:
+  ASPNETCORE_ENVIRONMENT: {{ .Values.api.config.aspnetcoreEnvironment | quote }}
+  Keycloak__Authority: {{ .Values.api.config.keycloakAuthority | quote }}
+  Keycloak__Audience: {{ .Values.api.config.keycloakAudience | quote }}
+  OpenTelemetry__OtlpEndpoint: {{ .Values.api.config.otlpEndpoint | quote }}
+  Smtp__Host: {{ .Values.api.config.smtpHost | quote }}
+  Smtp__Port: {{ .Values.api.config.smtpPort | quote }}
+  Smtp__From: {{ .Values.api.config.smtpFrom | quote }}
+  Database__RunDbUpOnStartup: {{ .Values.api.config.runDbUpOnStartup | quote }}
+  Database__SeedDevelopmentData: {{ .Values.api.config.seedDevelopmentData | quote }}
+  Bootstrap__Enabled: {{ .Values.api.config.bootstrap.enabled | quote }}
+  Bootstrap__AdminSubject: {{ .Values.api.config.bootstrap.adminSubject | quote }}
+  Bootstrap__AdminEmail: {{ .Values.api.config.bootstrap.adminEmail | quote }}
+  Bootstrap__AdminDisplayName: {{ .Values.api.config.bootstrap.adminDisplayName | quote }}
+  Bootstrap__WorkspaceName: {{ .Values.api.config.bootstrap.workspaceName | quote }}
