@@ -48,3 +48,10 @@ logs/
 
 # Local attachment blobs (LocalDiskFileStorage default root)
 App_Data/
+
+# Graphify - commit the generated graph, skip local cache/state
+graphify-out/cache/
+graphify-out/cost.json
+graphify-out/.graphify_root
+graphify-out/.graphify_analysis.json
+graphify-out/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
