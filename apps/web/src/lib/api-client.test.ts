@@ -49,6 +49,31 @@ describe("api-client", () => {
     expect((init.headers as Headers).get("X-Workspace")).toBe("ws-1");
   });
 
+  it("omits X-Workspace when noWorkspace is set, even with an ambient workspace", async () => {
+    // The host administration console depends on this: /api/v1/host/* is instance-level, and an
+    // X-Workspace header would make the API resolve a workspace whose RLS policies then filter every
+    // cross-workspace row down to that one. The ambient workspace survives navigation out of /app, so
+    // opting out has to be explicit.
+    const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    setApiContext({ workspaceId: "ws-1" });
+    await apiClient.get("/host/overview", { noWorkspace: true });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).has("X-Workspace")).toBe(false);
+  });
+
+  it("noWorkspace also overrides an explicitly passed workspaceId", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await apiClient.get("/host/overview", { workspaceId: "ws-2", noWorkspace: true });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init.headers as Headers).has("X-Workspace")).toBe(false);
+  });
+
   it("lets a per-call workspace override the ambient context", async () => {
     const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ status: 204 }));
     vi.stubGlobal("fetch", fetchMock);

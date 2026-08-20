@@ -63,7 +63,7 @@ public sealed class RegistrationGateTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Public_registration_policy_endpoint_reflects_the_configured_flag()
+    public async Task Public_registration_policy_endpoint_seeds_from_config_then_tracks_the_instance_settings_row()
     {
         // Anonymous — no X-Debug-* headers — this is what the landing page reads pre-auth to decide
         // whether to show Sign up / Start onboarding at all.
@@ -71,11 +71,31 @@ public sealed class RegistrationGateTests : IAsyncLifetime
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var body = await response.Content.ReadFromJsonAsync<RegistrationPolicyResponse>();
+
+        // Registration:AllowSelfRegistration=false seeded the instance settings row on its first read,
+        // which is how an installation that had the key switched off keeps it switched off across the
+        // upgrade that moved this setting into the database.
         body!.AllowSelfRegistration.ShouldBeFalse();
 
-        await using var allowedFactory = new GatedApiFactory(_container.GetConnectionString(), allowSelfRegistration: true);
-        var allowedResponse = await allowedFactory.CreateClient().GetAsync(new Uri("/api/v1/public/registration-policy", UriKind.Relative));
-        (await allowedResponse.Content.ReadFromJsonAsync<RegistrationPolicyResponse>())!.AllowSelfRegistration.ShouldBeTrue();
+        // From here the row owns the value — the configuration key is only the seed default. A host
+        // administrator flipping it in the console (this writes the row directly, which is the same
+        // state PUT /api/v1/host/settings produces) is reflected by the anonymous endpoint.
+        await SetAllowSelfRegistrationAsync(true);
+        await using var restarted = new GatedApiFactory(_container.GetConnectionString());
+        var reread = await restarted.CreateClient().GetAsync(new Uri("/api/v1/public/registration-policy", UriKind.Relative));
+        (await reread.Content.ReadFromJsonAsync<RegistrationPolicyResponse>())!.AllowSelfRegistration.ShouldBeTrue();
+
+        await SetAllowSelfRegistrationAsync(false);
+    }
+
+    private async Task SetAllowSelfRegistrationAsync(bool value)
+    {
+        await using var connection = new Npgsql.NpgsqlConnection(_container.GetConnectionString());
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE platform.instance_settings SET allow_self_registration = @value WHERE id = 1;";
+        command.Parameters.AddWithValue("value", value);
+        await command.ExecuteNonQueryAsync();
     }
 
     private sealed record RegistrationPolicyResponse(bool AllowSelfRegistration);

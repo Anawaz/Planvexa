@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme, type Theme } from "@/app/providers";
 import { apiClient } from "@/lib/api-client";
 import { PresenceAvatars } from "@/components/collab/PresenceAvatars";
@@ -10,6 +10,8 @@ import { GlobalTimerWidget } from "@/components/time/GlobalTimerWidget";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { useAppContext } from "@/lib/app-context/AppContext";
+import { getHostAdminStatus } from "@/lib/host/client";
+import { hostKeys } from "@/lib/host/queries";
 import { SidebarNavigation } from "./Sidebar";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
@@ -35,6 +37,14 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
   const { user, currentUser } = useAppContext();
   const displayName = currentUser?.displayName || user?.name || user?.email || "Account";
   const queryClient = useQueryClient();
+
+  // Decides whether to offer the host console at all. Cheap, cached, and shared with the /host layout
+  // through the same query key.
+  const hostAdminQuery = useQuery({
+    queryKey: hostKeys.status(),
+    queryFn: getHostAdminStatus,
+    staleTime: 5 * 60_000,
+  });
 
   // Persists to the account (PATCH /users/me — same endpoint the profile page uses), so the
   // preference follows the user across devices/sessions instead of living only in this browser's
@@ -165,6 +175,18 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
             >
               Legal and source code
             </a>
+            {/* Only rendered for an instance-level administrator — the probe returns false for
+                everyone else rather than a 403, so nothing here has to swallow an error. Hiding the
+                link is presentational; the API's HostAdmin policy is the actual gate. */}
+            {hostAdminQuery.data?.isHostAdmin ? (
+              <a
+                href="/host"
+                className="block w-full rounded-md px-2 py-2 text-left hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                role="menuitem"
+              >
+                Host administration
+              </a>
+            ) : null}
             {/* GET route: it clears the session cookies and redirects to Keycloak's end-session endpoint. */}
             <a
               href="/auth/logout"

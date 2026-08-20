@@ -1,8 +1,11 @@
 namespace Planvexa.Api.Startup;
 
 using Planvexa.Api.Auth;
+using Planvexa.BuildingBlocks.Abstractions;
+using Planvexa.BuildingBlocks.Domain;
 using Planvexa.BuildingBlocks.Workspaces;
 using Planvexa.Database;
+using Planvexa.Modules.Identity.Application;
 using Planvexa.Modules.Tenancy.Application;
 using Planvexa.SharedContracts.Users;
 
@@ -72,6 +75,8 @@ public static class PlanvexaBootstrap
             permissions: new HashSet<string>(), entitlements: new HashSet<string>(), correlationId: string.Empty));
         services.GetRequiredService<CurrentUser>().Set(user.UserId, subject, user.Email, user.DisplayName);
 
+        await EnsureHostAdminAsync(app, services, user.UserId, subject, cancellationToken);
+
         var workspaces = services.GetRequiredService<WorkspaceService>();
         var existing = await workspaces.ListForUserAsync(user.UserId, cancellationToken);
         if (existing.Count > 0)
@@ -86,10 +91,46 @@ public static class PlanvexaBootstrap
         // workspace gets the five built-in roles, the Owner membership, plan entitlements and the
         // starter status scheme/space/list in one transaction.
         var onboarding = services.GetRequiredService<WorkspaceRegistrationService>();
-        var workspace = await onboarding.OnboardWorkspaceAsync(workspaceName, user.UserId, cancellationToken: cancellationToken);
+        // enforceCreationPolicy: false — a WorkspaceCreationPolicy of HostAdminsOnly governs the
+        // self-service path, not the configured bootstrap admin creating this installation's first
+        // workspace. Same exemption shape as the registration gate bypass above.
+        var workspace = await onboarding.OnboardWorkspaceAsync(
+            workspaceName, user.UserId, cancellationToken: cancellationToken, enforceCreationPolicy: false);
 
         app.Logger.LogInformation(
             "First-run bootstrap created workspace '{Name}' ({Slug}, {WorkspaceId}) owned by {Email} (subject {Subject}).",
             workspace.Name, workspace.Slug, workspace.Id, user.Email, subject);
+    }
+
+    /// <summary>
+    /// Seeds the first instance-level (host) administrator — the account that can reach
+    /// <c>/api/v1/host/*</c> and the host console. Runs BEFORE the "already has a workspace" early
+    /// return above on purpose: on an upgraded installation the configured admin virtually always has
+    /// a workspace already, and gating the grant behind that return would mean an existing install
+    /// could never produce its first host admin.
+    ///
+    /// Only ever grants when the installation has NO active host admin at all. Once one exists, host
+    /// administration is self-administered through the console — so demoting the bootstrap account is
+    /// permanent rather than being silently undone by the next restart.
+    /// </summary>
+    private static async Task EnsureHostAdminAsync(
+        WebApplication app, IServiceProvider services, Guid userId, string subject, CancellationToken cancellationToken)
+    {
+        var store = services.GetRequiredService<IUserStore>();
+        if (await store.CountHostAdminsAsync(cancellationToken) > 0)
+        {
+            return;
+        }
+
+        if (await store.FindByIdAsync(userId, cancellationToken) is not { } admin)
+        {
+            return;
+        }
+
+        admin.GrantHostAdmin(services.GetRequiredService<IClock>().UtcNow);
+        await services.GetRequiredService<IUnitOfWork>().SaveChangesAsync(cancellationToken);
+
+        app.Logger.LogInformation(
+            "First-run bootstrap granted host administration to {Subject} — this installation had none.", subject);
     }
 }

@@ -61,6 +61,12 @@ The web client is wired to the live API: it calls `/api/v1` through a Next.js BF
 | Governance | audit-log export, security settings, retention, governed exports |
 | Ai, Mobile | permission-aware AI assistance; device registration + delta sync |
 
+Alongside those, the **host administration console** (`/host`, backed by `/api/v1/host/*`) gives whoever
+runs the server an instance-level view: every workspace and account, memberships and ownership, usage,
+instance settings, health and logs. It is metadata-only — no workspace content, no impersonation — and
+is separate from workspace administration, which continues to be scoped to a single workspace. See
+[`docs/runbooks/host-administration.md`](docs/runbooks/host-administration.md).
+
 The web client is also an installable PWA (manifest + service worker, `apps/web/public/`) with offline
 reading of already-visited tasks and a workspace-scoped IndexedDB outbox for offline task/comment/
 time-entry mutations, replayed on reconnect — see `apps/web/src/lib/offline/`.

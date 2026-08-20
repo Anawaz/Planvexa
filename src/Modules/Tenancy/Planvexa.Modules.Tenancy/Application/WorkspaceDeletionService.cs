@@ -24,13 +24,7 @@ public sealed class WorkspaceDeletionService(
 {
     public async Task DeleteAsync(Guid workspaceId, string confirmSlug, CancellationToken cancellationToken = default)
     {
-        var context = RequireWorkspace();
-        if (context.WorkspaceId != workspaceId)
-        {
-            // RLS authorizes the DELETE through the ambient workspace GUC, so the target must BE the
-            // ambient workspace — a caller cannot delete a workspace they are not currently inside.
-            throw new ForbiddenException("A workspace can only be deleted from within itself.");
-        }
+        var context = RequireTargetWorkspace(workspaceId);
 
         var workspace = await workspaces.FindByIdAsync(workspaceId, cancellationToken)
             ?? throw new NotFoundException("Workspace not found.");
@@ -41,6 +35,34 @@ public sealed class WorkspaceDeletionService(
             throw new ForbiddenException("Only an Owner can delete a workspace.");
         }
 
+        await DeleteCoreAsync(workspace, confirmSlug, "workspace.deleted", cancellationToken);
+    }
+
+    /// <summary>
+    /// The host-administrator deletion path: identical to <see cref="DeleteAsync"/> — same cascade,
+    /// same blob sweep, same retyped-slug confirmation — minus the Owner-membership check, because a
+    /// host administrator administers the installation and is deliberately not a member of the
+    /// Workspaces in it.
+    ///
+    /// This method does NOT authorize anything itself; whoever calls it must already have established
+    /// host-administrator status. Today that is the <c>HostAdmin</c> endpoint policy on
+    /// <c>/api/v1/host/*</c>, backed by the host-admin RLS policies in script 0094.
+    /// </summary>
+    public async Task DeleteAsHostAdminAsync(Guid workspaceId, string confirmSlug, CancellationToken cancellationToken = default)
+    {
+        RequireTargetWorkspace(workspaceId);
+
+        var workspace = await workspaces.FindByIdAsync(workspaceId, cancellationToken)
+            ?? throw new NotFoundException("Workspace not found.");
+
+        await DeleteCoreAsync(workspace, confirmSlug, "host.workspace.deleted", cancellationToken);
+    }
+
+    private async Task DeleteCoreAsync(
+        Domain.Workspace workspace, string confirmSlug, string auditAction, CancellationToken cancellationToken)
+    {
+        var workspaceId = workspace.Id;
+
         if (!string.Equals(confirmSlug, workspace.Slug, StringComparison.Ordinal))
         {
             throw new ConflictException("The confirmation does not match this workspace's slug.");
@@ -48,7 +70,7 @@ public sealed class WorkspaceDeletionService(
 
         // Written (and committed) BEFORE the delete: audit.audit_events is deliberately outside the
         // cascade (0092), so the record of the deletion outlives the workspace it describes.
-        audit.Write("workspace.deleted", nameof(Workspace), workspace.Id, new { workspace.Name, workspace.Slug });
+        audit.Write(auditAction, nameof(Workspace), workspace.Id, new { workspace.Name, workspace.Slug });
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await workspaces.DeleteCascadeAsync(workspaceId, cancellationToken);
@@ -66,12 +88,21 @@ public sealed class WorkspaceDeletionService(
         }
     }
 
-    private IWorkspaceContext RequireWorkspace()
+    private IWorkspaceContext RequireTargetWorkspace(Guid workspaceId)
     {
         var ctx = workspaceAccessor.Current;
         if (!ctx.HasWorkspace)
         {
             throw new ForbiddenException("A workspace context is required for this operation.");
+        }
+
+        if (ctx.WorkspaceId != workspaceId)
+        {
+            // RLS authorizes the DELETE through the ambient workspace GUC (workspace_self_delete, 0092),
+            // so the target must BE the ambient workspace — a caller cannot delete a workspace they are
+            // not currently inside. The host-admin path satisfies this by binding the scope to the
+            // target workspace before calling in (HostAdminActionService.EnterWorkspace).
+            throw new ForbiddenException("A workspace can only be deleted from within itself.");
         }
 
         return ctx;

@@ -39,6 +39,11 @@ long-term-recommended shape for a production install:
 CREATE ROLE planvexa_maint LOGIN BYPASSRLS PASSWORD '<strong password>';
 ```
 
+The host administration console (`/host`) does **not** need this role — its cross-workspace reads are
+authorized by their own RLS policies rather than `BYPASSRLS`, so it works on every install. See
+[`host-administration.md`](host-administration.md), including how the first host administrator is
+created from `Bootstrap:AdminSubject`.
+
 ## 2. Create the Kubernetes Secrets and install
 
 Follow `infrastructure/helm/README.md`'s Install section: create `planvexa-api-secrets` (with

@@ -5,6 +5,15 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_PLANVEXA_API_PROXY?.replace(
 export type ApiRequestOptions = Omit<RequestInit, "body" | "method"> & {
   workspaceId?: string;
   idempotencyKey?: string;
+  /**
+   * Send the request with NO `X-Workspace` header, ignoring the ambient workspace. Required by the
+   * host administration console: `/api/v1/host/*` is instance-level and its cross-workspace reads
+   * depend on there being no ambient workspace at all (an `X-Workspace` header would make the API
+   * resolve one and its RLS policies would then filter every row to that single workspace). The
+   * ambient `apiContext` is module state that survives client-side navigation out of `/app`, so
+   * "just don't be in a workspace" is not something the caller can rely on.
+   */
+  noWorkspace?: boolean;
 };
 
 // Ambient workspace for every request; AppContextProvider keeps it in sync.
@@ -62,10 +71,10 @@ async function request<TResponse, TBody = unknown>(
   path: string,
   options: ApiRequestOptions & { body?: TBody } = {},
 ): Promise<TResponse> {
-  const { body, headers: initHeaders, workspaceId, idempotencyKey, ...init } = options;
+  const { body, headers: initHeaders, workspaceId, idempotencyKey, noWorkspace, ...init } = options;
   const headers = new Headers(initHeaders);
   headers.set("Accept", "application/json");
-  const effectiveWorkspace = workspaceId ?? apiContext.workspaceId;
+  const effectiveWorkspace = noWorkspace ? undefined : workspaceId ?? apiContext.workspaceId;
   if (effectiveWorkspace) headers.set("X-Workspace", effectiveWorkspace);
   if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
 

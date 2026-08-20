@@ -7,6 +7,7 @@ using Planvexa.BuildingBlocks.Domain;
 using Planvexa.BuildingBlocks.Exceptions;
 using Planvexa.BuildingBlocks.Workspaces;
 using Planvexa.BuildingBlocks.Outbox;
+using Planvexa.BuildingBlocks.Platform;
 using Planvexa.Modules.Audit;
 using Planvexa.Modules.Audit.Domain;
 using Planvexa.Modules.Identity;
@@ -54,6 +55,8 @@ public sealed class PlanvexaDbContext(
     public DbSet<RolePermission> RolePermissionGrants => Set<RolePermission>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<InstanceSettings> InstanceSettings => Set<InstanceSettings>();
+    public DbSet<InstanceLogEntry> InstanceLogs => Set<InstanceLogEntry>();
 
     // Read live from the accessor so filters evaluate correctly even when the context instance was
     // created before the workspace was resolved (e.g. during resolution in middleware).
@@ -90,6 +93,8 @@ public sealed class PlanvexaDbContext(
         modelBuilder.ApplyConfiguration(new WhiteboardCollabStateRowConfiguration());
 
         ConfigureOutbox(modelBuilder);
+        ConfigureInstanceSettings(modelBuilder);
+        ConfigureInstanceLogs(modelBuilder);
         UseApplicationAssignedGuidKeys(modelBuilder);
         ApplyWorkspaceQueryFilters(modelBuilder);
 
@@ -240,6 +245,51 @@ public sealed class PlanvexaDbContext(
 
             entity.ClearDomainEvents();
         }
+    }
+
+    /// <summary>
+    /// The installation-wide settings row. Configured explicitly for the same reason
+    /// <see cref="ConfigureOutbox"/> is: it lives in the platform schema and belongs to no module, so
+    /// no module's assembly scan picks it up. Its key is a fixed constant, not a generated id — hence
+    /// <c>ValueGeneratedNever</c>, which also keeps the singleton row from being re-inserted.
+    /// </summary>
+    private static void ConfigureInstanceSettings(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InstanceSettings>(builder =>
+        {
+            builder.ToTable("instance_settings", PlatformSchema);
+            builder.HasKey(s => s.Id);
+            builder.Property(s => s.Id).ValueGeneratedNever();
+            builder.Property(s => s.AllowSelfRegistration).IsRequired();
+            builder.Property(s => s.WorkspaceCreationPolicy).HasMaxLength(32).IsRequired();
+            builder.Property(s => s.InstanceName).HasMaxLength(200);
+            builder.Property(s => s.LogoUrl).HasMaxLength(500);
+            builder.Property(s => s.SupportEmail).HasMaxLength(320);
+        });
+    }
+
+    /// <summary>
+    /// The host console's instance log store. Read-only through EF — records are WRITTEN by
+    /// <c>InstanceLogBackgroundService</c> over a raw Npgsql batch instead, deliberately: the writer is
+    /// a singleton draining a channel with no request scope, and routing log inserts through the
+    /// request DbContext would put them inside whatever transaction happened to be open (and, worse,
+    /// let an EF/Npgsql warning logged during the insert queue another insert).
+    /// <c>WorkspaceId</c> here is a filter column, not an isolation key: the table has no RLS and its
+    /// only reader is the host-admin endpoint, so no query filter is applied.
+    /// </summary>
+    private static void ConfigureInstanceLogs(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InstanceLogEntry>(builder =>
+        {
+            builder.ToTable("instance_logs", PlatformSchema);
+            builder.HasKey(e => e.Id);
+            builder.Property(e => e.Id).ValueGeneratedNever();
+            builder.Property(e => e.Level).HasMaxLength(16).IsRequired();
+            builder.Property(e => e.Category).HasMaxLength(256).IsRequired();
+            builder.Property(e => e.Message).IsRequired();
+            builder.Property(e => e.CorrelationId).HasMaxLength(128);
+            builder.HasIndex(e => e.CreatedAtUtc);
+        });
     }
 
     private static void ConfigureOutbox(ModelBuilder modelBuilder)

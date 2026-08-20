@@ -215,6 +215,23 @@ public static class InfrastructureModule
         services.AddScoped<WorkspaceResolver>();
         services.AddScoped<IWorkspaceResolver>(sp => sp.GetRequiredService<WorkspaceResolver>());
 
+        // Host administration (instance-level). Lives here rather than in a module because it
+        // deliberately spans Tenancy + Identity + Audit, which the module boundary rules forbid a
+        // module from doing — see HostAdminQueries' class doc comment.
+        services.AddScoped<HostAdmin.HostAdminQueries>();
+        services.AddScoped<HostAdmin.HostAdminActionService>();
+
+        // Installation-wide settings. The cache is a singleton (process-wide memo); the service that
+        // fills it is scoped like everything else that touches the DbContext.
+        services.AddSingleton<Platform.InstanceSettingsCache>();
+        services.AddScoped<Platform.InstanceSettingsService>();
+        services.AddScoped<SharedContracts.Platform.IInstanceSettingsProvider>(
+            sp => sp.GetRequiredService<Platform.InstanceSettingsService>());
+
+        // Read side of the instance log store. The write side is an ILoggerProvider in the API host —
+        // it is a singleton draining a channel and deliberately does not go through the DbContext.
+        services.AddScoped<Platform.InstanceLogQueries>();
+
         return services;
     }
 }

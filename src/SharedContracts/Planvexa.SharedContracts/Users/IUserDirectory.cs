@@ -37,4 +37,12 @@ public interface IUserDirectory
     Task<UserInfo?> FindByIdAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task<UserInfo?> FindByEmailAsync(string email, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// True when this user is an instance-level (host) administrator AND their account is still
+    /// active — see <c>User.IsHostAdmin</c>. Deliberately narrow: it answers one boolean rather than
+    /// widening <see cref="UserInfo"/>, because host-admin status is an authorization fact for the
+    /// host console, not a profile field every consumer of UserInfo should see.
+    /// </summary>
+    Task<bool> IsHostAdminAsync(Guid userId, CancellationToken cancellationToken = default);
 }

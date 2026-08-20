@@ -205,6 +205,18 @@ builder.Services.AddHostedService<Planvexa.Api.Automations.ScheduledAutomationBa
 builder.Services.AddHostedService<Planvexa.Api.Automations.SlaBackgroundService>();
 builder.Services.AddHostedService<Planvexa.Api.Automations.AutomationRetryBackgroundService>();
 
+// ---- Host administration: instance log capture + health ----
+// The provider is registered as a singleton FIRST and then added to the logging pipeline, so the same
+// instance backs both the ILogger fan-out and the background writer that drains its queue (and the
+// health endpoint that reports its dropped-record count).
+builder.Services.Configure<Planvexa.Api.Platform.InstanceLogOptions>(
+    builder.Configuration.GetSection(Planvexa.Api.Platform.InstanceLogOptions.SectionName));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<Planvexa.Api.Platform.InstanceLogProvider>();
+builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<Planvexa.Api.Platform.InstanceLogProvider>());
+builder.Services.AddHostedService<Planvexa.Api.Platform.InstanceLogBackgroundService>();
+builder.Services.AddScoped<Planvexa.Api.Platform.InstanceHealthService>();
+
 // ---- Current user (scoped, populated by middleware) ----
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();
@@ -259,7 +271,16 @@ else
         });
 }
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Instance-level administration (the host console), NOT a Workspace permission — see
+    // HostAdminPolicy.cs. Every /api/v1/host/* endpoint sits behind this one policy.
+    options.AddPolicy(HostAdminRequirement.PolicyName, policy =>
+        policy.RequireAuthenticatedUser().AddRequirements(new HostAdminRequirement()));
+});
+
+// Scoped, not singleton: the handler reads the scoped ICurrentUser populated by UserContextMiddleware.
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, HostAdminAuthorizationHandler>();
 
 // ---- JSON: serialize enums as their names (stable public API contract) ----
 builder.Services.ConfigureHttpJsonOptions(options =>

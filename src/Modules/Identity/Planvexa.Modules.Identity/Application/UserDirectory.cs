@@ -1,11 +1,11 @@
 namespace Planvexa.Modules.Identity.Application;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Planvexa.BuildingBlocks.Abstractions;
 using Planvexa.BuildingBlocks.Domain;
 using Planvexa.BuildingBlocks.Exceptions;
 using Planvexa.Modules.Identity.Domain;
+using Planvexa.SharedContracts.Platform;
 using Planvexa.SharedContracts.Tenancy;
 using Planvexa.SharedContracts.Users;
 
@@ -16,7 +16,7 @@ public sealed class UserDirectory(
     IIdGenerator ids,
     IClock clock,
     IInvitationDirectoryQuery invitations,
-    IConfiguration configuration) : IUserDirectory
+    IInstanceSettingsProvider instanceSettings) : IUserDirectory
 {
     public async Task<UserInfo> GetOrProvisionAsync(
         string subject,
@@ -46,13 +46,37 @@ public sealed class UserDirectory(
             // Unknown subject but known IdP-verified email: adopt the existing user instead of
             // colliding on the unique email index. Keycloak is the single trusted IdP here.
             user = await users.FindByEmailAsync(email.Trim().ToLowerInvariant(), cancellationToken);
-            user?.LinkSubject(subject, clock.UtcNow);
+            if (user is not null && user.IsActive)
+            {
+                // Only re-key a live account. Adopting a disabled one would hand its identity to the
+                // new subject — the guard below rejects the request either way, but this keeps the
+                // rejection from leaving a mutated entity behind.
+                user.LinkSubject(subject, clock.UtcNow);
+            }
+        }
+
+        // A disabled account gets no further than here. This is the ONE path every authenticated
+        // request takes — UserContextMiddleware calls it before anything downstream runs, and the
+        // SignalR hub handshake passes through the same middleware — so one check closes every
+        // endpoint at once instead of each having to remember. Nothing is written for a rejected
+        // caller: no profile sync, no MarkSeen, no SaveChanges.
+        //
+        // Covers both ways IsActive can be false: a host administrator's User.Deactivate, and
+        // User.Anonymize (GDPR deletion), which has always cleared IsActive but until now had nothing
+        // enforcing it.
+        if (user is not null && !user.IsActive)
+        {
+            throw new ForbiddenException("This account has been disabled. Contact your administrator.");
         }
 
         var isNewUser = false;
         if (user is null)
         {
-            var allowSelfRegistration = !bool.TryParse(configuration["Registration:AllowSelfRegistration"], out var configured) || configured;
+            // The live value is the instance settings row, editable by a host administrator in the
+            // console. Registration:AllowSelfRegistration is now only the seed default for that row on
+            // a fresh installation (see InstanceSettingsService.LoadAsync) — so an operator no longer
+            // has to redeploy to open or close registration.
+            var allowSelfRegistration = (await instanceSettings.GetAsync(cancellationToken)).AllowSelfRegistration;
             if (enforceRegistrationGate && !allowSelfRegistration && !await invitations.HasPendingInvitationAsync(email, cancellationToken))
             {
                 throw new ForbiddenException("Self-registration is disabled. Ask a workspace admin to invite you.");
@@ -100,6 +124,12 @@ public sealed class UserDirectory(
     {
         var user = await users.FindByIdAsync(userId, cancellationToken);
         return user is null ? null : ToInfo(user);
+    }
+
+    public async Task<bool> IsHostAdminAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await users.FindByIdAsync(userId, cancellationToken);
+        return user is { IsHostAdmin: true, IsActive: true };
     }
 
     public async Task<UserInfo?> FindByEmailAsync(string email, CancellationToken cancellationToken = default)

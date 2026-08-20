@@ -3,8 +3,11 @@ namespace Planvexa.Modules.Tenancy.Application;
 using Planvexa.BuildingBlocks.Abstractions;
 using Planvexa.BuildingBlocks.Domain;
 using Planvexa.BuildingBlocks.Exceptions;
+using Planvexa.BuildingBlocks.Platform;
 using Planvexa.BuildingBlocks.Workspaces;
 using Planvexa.Modules.Tenancy.Domain;
+using Planvexa.SharedContracts.Platform;
+using Planvexa.SharedContracts.Users;
 using Planvexa.SharedContracts.Workspaces;
 
 /// <summary>
@@ -24,8 +27,40 @@ public sealed class WorkspaceRegistrationService(
     IUnitOfWork unitOfWork,
     IWorkspaceContextAccessor workspaceAccessor,
     IFeatureEntitlementStore entitlements,
-    IWorkspaceProvisioner workspaceProvisioner)
+    IWorkspaceProvisioner workspaceProvisioner,
+    IInstanceSettingsProvider instanceSettings,
+    IUserDirectory users)
 {
+    /// <summary>
+    /// Enforces the installation's workspace-creation policy. Checked here rather than at the endpoint
+    /// because this is the ONLY workspace-creation path in the product (see the class doc comment), so
+    /// one check covers onboarding, "add another workspace", and any future caller.
+    ///
+    /// The first-run bootstrap is exempt by construction: it passes <paramref name="enforcePolicy"/>
+    /// as false, the same shape as <c>IUserDirectory.GetOrProvisionAsync</c>'s registration-gate
+    /// bypass, because a configured bootstrap admin creating the installation's first workspace is not
+    /// the self-service path this policy governs.
+    /// </summary>
+    private async Task EnsureMayCreateAsync(Guid ownerUserId, bool enforcePolicy, CancellationToken cancellationToken)
+    {
+        if (!enforcePolicy)
+        {
+            return;
+        }
+
+        var settings = await instanceSettings.GetAsync(cancellationToken);
+        if (settings.WorkspaceCreationPolicy != WorkspaceCreationPolicies.HostAdminsOnly)
+        {
+            return;
+        }
+
+        if (!await users.IsHostAdminAsync(ownerUserId, cancellationToken))
+        {
+            throw new ForbiddenException(
+                "Workspace creation is restricted to host administrators on this instance.");
+        }
+    }
+
     /// <summary>
     /// The user asks for a Workspace name and optionally a slug. If no slug is provided, one is
     /// generated from the name. The creator becomes Owner, plan entitlements are seeded, and the
@@ -34,9 +69,10 @@ public sealed class WorkspaceRegistrationService(
     /// </summary>
     public async Task<WorkspaceDto> OnboardWorkspaceAsync(
         string workspaceName, Guid ownerUserId, string? workspaceSlug = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, bool enforceCreationPolicy = true)
     {
         Guard.AgainstNullOrWhiteSpace(workspaceName, nameof(workspaceName));
+        await EnsureMayCreateAsync(ownerUserId, enforceCreationPolicy, cancellationToken);
 
         var now = clock.UtcNow;
         var workspaceId = ids.NewId();

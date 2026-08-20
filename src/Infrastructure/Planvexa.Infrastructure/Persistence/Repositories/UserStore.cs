@@ -18,4 +18,7 @@ internal sealed class UserStore(PlanvexaDbContext db) : IUserStore
 
     public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken = default)
         => db.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+    public Task<int> CountHostAdminsAsync(CancellationToken cancellationToken = default)
+        => db.Users.CountAsync(u => u.IsHostAdmin && u.IsActive, cancellationToken);
 }

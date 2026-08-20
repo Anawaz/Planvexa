@@ -54,6 +54,14 @@ policies) has been fully removed — Workspace is the sole isolation boundary en
 - **Identity vs authorization.** Keycloak proves identity (one realm per environment). `User` is a
   global directory record. The application database owns Workspace membership, roles, guest access,
   resource permissions and subscription entitlements — all scoped per Workspace.
+- **Host administration is instance-level and metadata-only.** `identity.users.is_host_admin` governs
+  the `/api/v1/host/*` console for whoever runs the installation. It is not a Workspace role and grants
+  no Workspace membership: it may read workspace/account/membership metadata and aggregates across the
+  instance, and may suspend/delete a Workspace or disable an account — never workspace CONTENT (tasks,
+  documents, comments, messages) and never impersonation. Cross-Workspace reads are authorized by the
+  host-admin RLS policies in script 0094, keyed on `app.current_user` and re-validated against the flag
+  in the database, so this does not weaken Workspace isolation. Do not add a host endpoint that returns
+  Workspace content.
 - **Outbox.** State changes and their domain events are written in the same transaction; a worker
   publishes them. NATS JetStream is introduced only when cross-process distribution is required.
 - **IDs.** UUIDv7 via `Guid.CreateVersion7()` for sortable globally-unique identifiers.

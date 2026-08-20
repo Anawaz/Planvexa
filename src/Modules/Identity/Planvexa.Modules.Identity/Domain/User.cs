@@ -31,6 +31,16 @@ public sealed class User : Entity, IAggregateRoot
 
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Instance-level (NOT Workspace-level) administrator: may use the host administration console to
+    /// manage every Workspace and account in this installation. Deliberately a property of the global
+    /// <see cref="User"/> rather than a Workspace membership role, because the host administrator
+    /// administers the installation, not any particular Workspace — they are typically a member of
+    /// none of them. Backed by identity.users.is_host_admin (script 0094), which the host-admin RLS
+    /// policies re-check in the database so this is not an application-layer-only guarantee.
+    /// </summary>
+    public bool IsHostAdmin { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
     public DateTimeOffset? UpdatedAtUtc { get; private set; }
@@ -179,6 +189,74 @@ public sealed class User : Entity, IAggregateRoot
 
     public void MarkSeen(DateTimeOffset nowUtc) => LastSeenAtUtc = nowUtc;
 
+    /// <summary>
+    /// Host-administrator account suspension. Unlike <see cref="Anonymize"/> (which also clears
+    /// <see cref="IsActive"/>) this is fully reversible and destroys nothing — it only closes the door.
+    /// Enforcement lives in <see cref="Application.UserDirectory.GetOrProvisionAsync(string, string,
+    /// string, bool, CancellationToken)"/>, the single path every authenticated HTTP request and
+    /// SignalR connection passes through, so a deactivated account loses access everywhere at once
+    /// rather than per-endpoint. Idempotent.
+    /// </summary>
+    public void Deactivate(DateTimeOffset nowUtc)
+    {
+        if (!IsActive)
+        {
+            return;
+        }
+
+        IsActive = false;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>
+    /// Reverses <see cref="Deactivate"/>. Refuses to resurrect an anonymized account: its PII is gone
+    /// (see <see cref="IsAnonymized"/>), so "reactivating" it would only produce a login-less shell
+    /// under a scrubbed subject.
+    /// </summary>
+    public void Reactivate(DateTimeOffset nowUtc)
+    {
+        if (IsAnonymized)
+        {
+            throw new InvalidOperationException("An anonymized account cannot be reactivated.");
+        }
+
+        if (IsActive)
+        {
+            return;
+        }
+
+        IsActive = true;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Grants instance-level administration (see <see cref="IsHostAdmin"/>). Idempotent.</summary>
+    public void GrantHostAdmin(DateTimeOffset nowUtc)
+    {
+        if (IsHostAdmin)
+        {
+            return;
+        }
+
+        IsHostAdmin = true;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>
+    /// Revokes instance-level administration. The "you cannot demote the last host admin (or
+    /// yourself)" rules are enforced by the caller, which is the only layer that can see the other
+    /// accounts — this method just flips the flag. Idempotent.
+    /// </summary>
+    public void RevokeHostAdmin(DateTimeOffset nowUtc)
+    {
+        if (!IsHostAdmin)
+        {
+            return;
+        }
+
+        IsHostAdmin = false;
+        UpdatedAtUtc = nowUtc;
+    }
+
     /// <summary>Self-service avatar upload (see AvatarService). Only ever called with a path this
     /// server just wrote to storage, never a client-supplied URL.</summary>
     public void SetAvatarUrl(string avatarUrl, DateTimeOffset nowUtc)
@@ -207,6 +285,10 @@ public sealed class User : Entity, IAggregateRoot
         // path in this codebase accepts) — clearing the pointer is what stops it from being served.
         AvatarUrl = null;
         IsActive = false;
+        // A scrubbed account must not keep instance-level administration: IsActive alone would stop it
+        // signing in, but the last-host-admin guard counts flagged rows, and a deleted account left
+        // flagged would keep blocking the real host admin from ever being demoted.
+        IsHostAdmin = false;
         IsAnonymized = true;
         AnonymizedAtUtc = nowUtc;
         UpdatedAtUtc = nowUtc;

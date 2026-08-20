@@ -10,4 +10,8 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/app/:path*", "/invite/:path*", "/onboarding/:path*"] };
+// `/host` is the instance-level administration console. It is listed here only so an unauthenticated
+// visitor is redirected to sign in rather than rendering its shell; whether a signed-in user is
+// actually a host administrator is decided server-side by the HostAdmin policy on every
+// /api/v1/host/* call (and mirrored by the layout's own gate, which only decides what to render).
+export const config = { matcher: ["/app/:path*", "/host/:path*", "/invite/:path*", "/onboarding/:path*"] };

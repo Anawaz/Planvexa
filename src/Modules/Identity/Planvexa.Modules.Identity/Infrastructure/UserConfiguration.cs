@@ -25,6 +25,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Theme).HasMaxLength(10);
         builder.Property(u => u.HasCustomDisplayName).IsRequired();
         builder.Property(u => u.IsActive).IsRequired();
+        builder.Property(u => u.IsHostAdmin).IsRequired();
         builder.Property(u => u.CreatedAtUtc).IsRequired();
         builder.Property(u => u.IsAnonymized).IsRequired();
 

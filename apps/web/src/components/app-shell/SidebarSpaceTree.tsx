@@ -373,6 +373,15 @@ export function SidebarSpaceTree({ onNavigate }: { onNavigate?: () => void }) {
             Spaces
           </Link>
         </h2>
+        <Link
+          href="/app/spaces"
+          onClick={onNavigate}
+          aria-label="Manage spaces"
+          title="Manage spaces"
+          className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-60 hover:bg-background hover:text-foreground focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring group-hover:opacity-100"
+        >
+          <Icon name="settings" />
+        </Link>
         <AddButton label="New space" onClick={() => openComposer({ kind: "space" })} />
       </div>
 

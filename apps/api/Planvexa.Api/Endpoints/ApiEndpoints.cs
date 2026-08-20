@@ -7,6 +7,7 @@ using Planvexa.Infrastructure.Persistence;
 using Planvexa.Modules.Identity.Application.Services;
 using Planvexa.Modules.Tenancy.Application;
 using Planvexa.Modules.Tenancy.Domain;
+using Planvexa.SharedContracts.Platform;
 using Planvexa.SharedContracts.Users;
 
 public static class ApiEndpoints
@@ -52,6 +53,9 @@ public static class ApiEndpoints
 
         // Enterprise Security & Governance.
         api.MapGovernanceEndpoints();
+
+        // Host administration — instance-level, not Workspace-scoped.
+        api.MapHostEndpoints();
 
         // AI, Mobile & Data Retention.
         api.MapAiMobileEndpoints();
@@ -100,12 +104,20 @@ public static class ApiEndpoints
     private static void MapPublicConfig(RouteGroupBuilder api)
     {
         // Anonymous: the landing page reads this before the visitor has a session, to decide whether
-        // to show Sign up / Start onboarding at all (see Registration:AllowSelfRegistration and
-        // UserDirectory.GetOrProvisionAsync's gate).
-        api.MapGet("/public/registration-policy", (IConfiguration configuration) =>
+        // to show Sign up / Start onboarding at all (see UserDirectory.GetOrProvisionAsync's gate),
+        // and to brand itself. Both now come from the host-editable instance settings row rather than
+        // configuration, so changing either takes effect without a redeploy.
+        api.MapGet("/public/registration-policy", async (IInstanceSettingsProvider settings, CancellationToken ct) =>
             {
-                var allowSelfRegistration = !bool.TryParse(configuration["Registration:AllowSelfRegistration"], out var configured) || configured;
-                return Results.Ok(new { allowSelfRegistration });
+                var current = await settings.GetAsync(ct);
+                return Results.Ok(new
+                {
+                    allowSelfRegistration = current.AllowSelfRegistration,
+                    workspaceCreationPolicy = current.WorkspaceCreationPolicy,
+                    instanceName = current.InstanceName,
+                    logoUrl = current.LogoUrl,
+                    supportEmail = current.SupportEmail,
+                });
             })
             .AllowAnonymous()
             .WithName("GetRegistrationPolicy");
