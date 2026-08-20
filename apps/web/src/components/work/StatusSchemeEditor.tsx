@@ -215,11 +215,13 @@ export function StatusSchemeEditor({
               value={status.category}
               disabled={locked}
               aria-label={`Category of ${status.name}`}
-              onChange={(event) =>
-                edit.mutate(() =>
-                  updateStatus(scheme.id, status.id, { category: event.currentTarget.value as StatusCategory }),
-                )
-              }
+              // Read the value HERE, not inside the mutation closure: currentTarget is nulled once
+              // the handler returns, so deferring the read threw before the request was ever sent —
+              // and react-query swallowed it into mutation state, so the category silently never saved.
+              onChange={(event) => {
+                const category = event.currentTarget.value as StatusCategory;
+                edit.mutate(() => updateStatus(scheme.id, status.id, { category }));
+              }}
               className={selectClassName}
             >
               {categories.map((category) => (

@@ -15,7 +15,7 @@ import {
 import { workKeys } from "@/lib/work/queries";
 import { statusPresets } from "@/lib/work/statusPresets";
 import { useAppContext } from "@/lib/app-context/AppContext";
-import type { StatusScheme } from "@/lib/work/types";
+import type { StatusDefinition, StatusScheme } from "@/lib/work/types";
 import { cn } from "@/lib/utils";
 import { StatusSchemeEditor } from "./StatusSchemeEditor";
 import { useFocusTrap } from "./useFocusTrap";
@@ -39,14 +39,15 @@ function RevertToDefaultDialog({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const targets = defaultScheme?.statuses ?? [];
-  const [mapping, setMapping] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      scheme.statuses.map((status) => [
-        status.id,
-        targets.find((target) => target.name.toLowerCase() === status.name.toLowerCase())?.id ?? "",
-      ]),
-    ),
-  );
+  // Only the user's explicit overrides. The name-matched prefill is derived at render instead of
+  // frozen into state: the workspace-default query is gated on the dialog opening, so at first
+  // render `targets` is still empty and a useState initializer would bake in "no match" for
+  // everything — leaving every row on "Leave unmapped" and the revert rejected by the API.
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const targetFor = (status: StatusDefinition) =>
+    overrides[status.id] ??
+    targets.find((target) => target.name.toLowerCase() === status.name.toLowerCase())?.id ??
+    "";
 
   useFocusTrap({ open: true, containerRef: dialogRef, onClose });
 
@@ -54,9 +55,9 @@ function RevertToDefaultDialog({
     mutationFn: () =>
       resetSpaceStatusScheme(
         spaceId,
-        Object.entries(mapping)
-          .filter(([, toStatusId]) => toStatusId !== "")
-          .map(([fromStatusId, toStatusId]) => ({ fromStatusId, toStatusId })),
+        scheme.statuses
+          .map((status) => ({ fromStatusId: status.id, toStatusId: targetFor(status) }))
+          .filter((entry) => entry.toStatusId !== ""),
       ),
     onSuccess: () => {
       onDone();
@@ -100,11 +101,12 @@ function RevertToDefaultDialog({
               <span className="truncate">{status.name}</span>
               <select
                 aria-label={`Replacement for ${status.name}`}
-                value={mapping[status.id] ?? ""}
+                value={targetFor(status)}
                 disabled={mutation.isPending}
-                onChange={(event) =>
-                  setMapping((current) => ({ ...current, [status.id]: event.currentTarget.value }))
-                }
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setOverrides((current) => ({ ...current, [status.id]: value }));
+                }}
                 className={selectClassName}
               >
                 <option value="">Leave unmapped</option>
@@ -152,11 +154,12 @@ export function SpaceStatusPageClient({ spaceId }: { spaceId: string }) {
     queryFn: () => getSpaceStatusScheme(spaceId),
   });
 
-  // Only the revert dialog needs the workspace default (as the list of possible targets).
+  // Only the revert dialog uses this (as the list of possible targets), but it is fetched with the
+  // page rather than on open: gating it on `reverting` meant the dialog's first paint had no target
+  // options at all and a disabled submit button.
   const defaultSchemeQuery = useQuery({
     queryKey: [...workKeys.statusSchemes(), "workspace-level"],
     queryFn: listWorkspaceStatusSchemes,
-    enabled: reverting,
   });
 
   const invalidate = () => {

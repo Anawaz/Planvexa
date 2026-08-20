@@ -17,7 +17,10 @@ test("owner can log in, is shown in the topbar, and sign-out relocks /app", asyn
 
   await account.click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await page.waitForURL("**/login**");
+  // /auth/logout hands off to Keycloak's end-session endpoint with post_logout_redirect_uri = "/",
+  // so sign-out lands on the public home page, not /login. Either is fine here — the point of this
+  // wait is only that we have left /app; the assertion below is what proves the session is dead.
+  await page.waitForURL((url) => url.pathname === "/" || url.pathname.startsWith("/login"));
 
   await page.goto("/app");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
