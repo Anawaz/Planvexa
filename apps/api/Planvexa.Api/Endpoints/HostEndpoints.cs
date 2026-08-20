@@ -8,6 +8,7 @@ using Planvexa.BuildingBlocks.Domain;
 using Planvexa.BuildingBlocks.Platform;
 using Planvexa.Infrastructure.HostAdmin;
 using Planvexa.Infrastructure.Platform;
+using Planvexa.SharedContracts.Platform;
 using Planvexa.SharedContracts.Users;
 
 public sealed record DeleteWorkspaceAsHostRequest(string ConfirmSlug);
@@ -213,7 +214,9 @@ public static class HostEndpoints
     private static void MapSettings(RouteGroupBuilder host)
     {
         host.MapGet("/settings", async (InstanceSettingsService settings, CancellationToken ct) =>
-                Results.Ok(ToResponse(await settings.GetForAdminAsync(ct))))
+                Results.Ok(ToResponse(
+                    await settings.GetForAdminAsync(ct),
+                    await settings.GetIdentityProviderStateAsync(ct))))
             .WithName("GetInstanceSettings");
 
         host.MapPut("/settings", async (
@@ -230,16 +233,23 @@ public static class HostEndpoints
                 // settings, so the new state IS the useful record and reconstructing history from a
                 // sequence of them needs no extra bookkeeping. Runs with no ambient workspace, so this
                 // lands as a platform-level event (WorkspaceId null).
-                audit.Write("host.settings.updated", nameof(InstanceSettings), null, ToResponse(updated));
+                // The sync attempted during the update, when it touched self-registration — otherwise
+                // the provider's current state. Either way the console can show whether the identity
+                // provider agrees, which is the difference between the toggle working and only
+                // appearing to.
+                var identityProvider = settings.LastIdentityProviderSync
+                    ?? await settings.GetIdentityProviderStateAsync(ct);
+
+                audit.Write("host.settings.updated", nameof(InstanceSettings), null, ToResponse(updated, identityProvider));
                 await unitOfWork.SaveChangesAsync(ct);
 
-                return Results.Ok(ToResponse(updated));
+                return Results.Ok(ToResponse(updated, identityProvider));
             })
             .AddEndpointFilter<ValidationFilter<UpdateInstanceSettingsRequest>>()
             .WithName("UpdateInstanceSettings");
     }
 
-    private static object ToResponse(InstanceSettings settings) => new
+    private static object ToResponse(InstanceSettings settings, IdentityProviderRegistrationState identityProvider) => new
     {
         settings.AllowSelfRegistration,
         settings.WorkspaceCreationPolicy,
@@ -248,6 +258,12 @@ public static class HostEndpoints
         settings.SupportEmail,
         settings.UpdatedAtUtc,
         settings.UpdatedByUserId,
+        IdentityProvider = new
+        {
+            identityProvider.Manageable,
+            identityProvider.RegistrationAllowed,
+            identityProvider.Detail,
+        },
     };
 
     private static void MapActivity(RouteGroupBuilder host)

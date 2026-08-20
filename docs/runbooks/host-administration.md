@@ -131,9 +131,38 @@ re-enabled: their personal data is gone, so there is nothing to restore.
 
 | Setting | Effect |
 | --- | --- |
-| Allow self-registration | When off, only someone with a pending Workspace invitation can create an account. Existing accounts are unaffected. |
+| Allow self-registration | When off, only someone with a pending Workspace invitation can create an account. Existing accounts are unaffected. **See the caveat below — this has two halves.** |
 | Who may create workspaces | `Anyone` or `HostAdminsOnly`. Enforced in `WorkspaceRegistrationService`, the single Workspace-creation path. Existing Workspaces are unaffected. |
 | Instance name / logo / support email | Shown on the sign-in page before anyone has a session, via the anonymous `GET /api/v1/public/registration-policy`. |
+
+### Self-registration has two halves
+
+Turning the toggle on is **not sufficient on its own**. Account creation involves two independent
+decisions:
+
+1. **Keycloak** decides whether a person can create an account at all (Realm settings → Login → *User
+   registration*). With this off, `/auth/register` returns HTTP 400 and the sign-in page shows no
+   "Register" link, no matter what Planvexa says.
+2. **Planvexa** decides whether it accepts that new identity — this toggle, enforced in
+   `UserDirectory.GetOrProvisionAsync`.
+
+If the two disagree, the host console says so directly on the Settings page rather than letting the
+toggle look broken. Two ways to keep them in step:
+
+- **Let Planvexa manage it.** Configure `Keycloak:AdminClientId` + `Keycloak:AdminClientSecret` (a
+  confidential client whose service account holds `manage-realm` — preferred: scoped to one realm and
+  revocable) or `Keycloak:AdminUser` + `Keycloak:AdminPassword`. The toggle then writes Keycloak's
+  `registrationAllowed` too, and the Settings page reports the identity provider's live state. The
+  admin base URL and realm are derived from `Keycloak:Authority`, so there is nothing else to set.
+- **Manage Keycloak yourself.** Leave those blank. Enable registration once in Keycloak and let
+  Planvexa's toggle be the day-to-day control; the console will show an amber note explaining that it
+  governs Planvexa only.
+
+`scripts/keycloak-bootstrap.ps1` sets `registrationAllowed = true` and will update an existing realm,
+so re-running it against a realm that has drifted is the quickest one-off fix.
+
+A sync failure never fails the save: the Planvexa-side setting is committed first, and the identity
+provider's outcome is reported afterwards.
 
 `Registration:AllowSelfRegistration` in configuration is now only the **seed default**. On first read,
 `InstanceSettingsService` creates the `platform.instance_settings` row using whatever that key says —

@@ -33,7 +33,8 @@ public sealed class InstanceSettingsService(
     ICurrentUser currentUser,
     IClock clock,
     IConfiguration configuration,
-    InstanceSettingsCache cache) : IInstanceSettingsProvider
+    InstanceSettingsCache cache,
+    IIdentityProviderRegistration identityProvider) : IInstanceSettingsProvider
 {
     public static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(1);
 
@@ -68,8 +69,29 @@ public sealed class InstanceSettingsService(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         cache.Invalidate();
+
+        // Push the identity provider's half of the same setting. AFTER the commit and deliberately
+        // never allowed to fail the save: Planvexa's gate is the authoritative one, and an unreachable
+        // identity provider must not lose a change the operator already made. The outcome is surfaced
+        // by GET /host/settings so a failed sync is visible rather than silent.
+        if (command.AllowSelfRegistration is { } allowSelfRegistration)
+        {
+            LastIdentityProviderSync = await identityProvider.SetAsync(allowSelfRegistration, cancellationToken);
+        }
+
         return settings;
     }
+
+    /// <summary>
+    /// The result of the most recent identity-provider sync in THIS request, or null when the update
+    /// did not touch self-registration. Scoped state, not shared: the settings endpoint reads it
+    /// immediately after calling <see cref="UpdateAsync"/>.
+    /// </summary>
+    public IdentityProviderRegistrationState? LastIdentityProviderSync { get; private set; }
+
+    /// <summary>Current identity-provider registration state, for the console to display.</summary>
+    public Task<IdentityProviderRegistrationState> GetIdentityProviderStateAsync(CancellationToken cancellationToken = default)
+        => identityProvider.GetAsync(cancellationToken);
 
     /// <summary>
     /// Loads the singleton row, creating it on first read. Script 0095 deliberately creates the table

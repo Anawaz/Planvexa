@@ -223,6 +223,11 @@ public static class InfrastructureModule
 
         // Installation-wide settings. The cache is a singleton (process-wide memo); the service that
         // fills it is scoped like everything else that touches the DbContext.
+        // Default: Planvexa controls only its own half of self-registration. The API host replaces this
+        // with the Keycloak-managing implementation when identity-provider admin credentials are
+        // configured (registered later, so it wins the resolve).
+        services.AddScoped<SharedContracts.Platform.IIdentityProviderRegistration, Platform.UnmanagedIdentityProviderRegistration>();
+
         services.AddSingleton<Platform.InstanceSettingsCache>();
         services.AddScoped<Platform.InstanceSettingsService>();
         services.AddScoped<SharedContracts.Platform.IInstanceSettingsProvider>(

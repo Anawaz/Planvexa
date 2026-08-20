@@ -141,6 +141,19 @@ export type InstanceLogEntry = {
 
 export type WorkspaceCreationPolicy = "Anyone" | "HostAdminsOnly";
 
+/**
+ * Whether the identity provider will let anyone create an account at all — the OTHER half of
+ * self-registration. Planvexa's own toggle only decides whether it accepts a new identity; if the IdP
+ * refuses to create one, the sign-up link fails no matter what this instance says.
+ */
+export type IdentityProviderState = {
+  /** True when Planvexa holds credentials to read and change the IdP setting. */
+  manageable: boolean;
+  /** The IdP's state, or null when it could not be determined. */
+  registrationAllowed: boolean | null;
+  detail?: string | null;
+};
+
 export type InstanceSettings = {
   allowSelfRegistration: boolean;
   workspaceCreationPolicy: WorkspaceCreationPolicy;
@@ -149,6 +162,7 @@ export type InstanceSettings = {
   supportEmail?: string | null;
   updatedAtUtc?: string | null;
   updatedByUserId?: string | null;
+  identityProvider: IdentityProviderState;
 };
 
 /** Every field optional — the API treats null as "leave this one alone". */

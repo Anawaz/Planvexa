@@ -47,9 +47,11 @@ public sealed class HostAdminFlowTests(PlanvexaFixture fixture)
     private sealed record InstanceLogResponse(
         Guid Id, DateTimeOffset CreatedAtUtc, string Level, string Category, string Message,
         string? Exception, string? CorrelationId, Guid? UserId, Guid? WorkspaceId);
+    private sealed record IdentityProviderStateResponse(bool Manageable, bool? RegistrationAllowed, string? Detail);
     private sealed record InstanceSettingsResponse(
         bool AllowSelfRegistration, string WorkspaceCreationPolicy, string? InstanceName, string? LogoUrl,
-        string? SupportEmail, DateTimeOffset? UpdatedAtUtc, Guid? UpdatedByUserId);
+        string? SupportEmail, DateTimeOffset? UpdatedAtUtc, Guid? UpdatedByUserId,
+        IdentityProviderStateResponse IdentityProvider);
     private sealed record PublicPolicyResponse(
         bool AllowSelfRegistration, string WorkspaceCreationPolicy, string? InstanceName, string? LogoUrl,
         string? SupportEmail);
@@ -522,6 +524,12 @@ public sealed class HostAdminFlowTests(PlanvexaFixture fixture)
         settings!.InstanceName.ShouldBe("Acme Internal");
         settings.SupportEmail.ShouldBe("help@acme.example");
         settings.UpdatedByUserId.ShouldBe(hostUserId);
+
+        // No identity-provider admin credentials in the test fixture, so the console is told plainly
+        // that this instance governs its own half only — rather than implying it controls Keycloak.
+        settings.IdentityProvider.Manageable.ShouldBeFalse();
+        settings.IdentityProvider.RegistrationAllowed.ShouldBeNull();
+        settings.IdentityProvider.Detail.ShouldNotBeNullOrWhiteSpace();
 
         // Anonymous: the sign-in page reads this before there is a session, so branding must reach it.
         var anonymous = fixture.Factory.CreateClient();

@@ -2,7 +2,9 @@ namespace Planvexa.UnitTests.HostAdministration;
 
 using Microsoft.Extensions.Configuration;
 using Planvexa.Api.Auth;
+using Planvexa.Api.Platform;
 using Planvexa.BuildingBlocks.Platform;
+using Planvexa.Infrastructure.Platform;
 using Planvexa.Modules.Identity.Domain;
 using Shouldly;
 using Xunit;
@@ -132,6 +134,97 @@ public sealed class HostAdminBreakGlassTests
 
         HostAdminAuthorizationHandler.IsBreakGlassSubject(configuration, "sub-rescue").ShouldBeFalse();
         HostAdminAuthorizationHandler.IsBreakGlassSubject(configuration, "sub-Rescue").ShouldBeTrue();
+    }
+}
+
+/// <summary>
+/// Deriving the Keycloak admin endpoint from the authority the app already has, and refusing to
+/// activate without credentials. Realm-admin rights are not something to take by accident.
+/// </summary>
+public sealed class KeycloakAdminOptionsTests
+{
+    private static IConfiguration Config(params (string Key, string Value)[] values)
+        => new ConfigurationBuilder()
+            .AddInMemoryCollection(values.Select(v => new KeyValuePair<string, string?>(v.Key, v.Value)))
+            .Build();
+
+    [Fact]
+    public void No_credentials_means_no_identity_provider_management()
+    {
+        // The default posture: Planvexa controls its own gate and nothing else.
+        KeycloakAdminOptions.TryCreate(Config(("Keycloak:Authority", "https://example.test/realms/planvexa")))
+            .ShouldBeNull();
+    }
+
+    [Fact]
+    public void No_authority_means_no_identity_provider_management()
+    {
+        KeycloakAdminOptions.TryCreate(Config(
+            ("Keycloak:AdminUser", "admin"),
+            ("Keycloak:AdminPassword", "secret"))).ShouldBeNull();
+    }
+
+    [Fact]
+    public void The_base_url_and_realm_are_split_out_of_the_authority()
+    {
+        // Including a path prefix — this product is deployed with Keycloak behind /idp — which is why
+        // the base URL is derived rather than configured separately and allowed to drift.
+        var options = KeycloakAdminOptions.TryCreate(Config(
+            ("Keycloak:Authority", "https://planvexa.example/idp/realms/planvexa"),
+            ("Keycloak:AdminUser", "admin"),
+            ("Keycloak:AdminPassword", "secret")));
+
+        options.ShouldNotBeNull();
+        options.BaseUrl.ShouldBe("https://planvexa.example/idp");
+        options.Realm.ShouldBe("planvexa");
+        options.UseServiceAccount.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void A_service_account_client_is_preferred_over_an_admin_password()
+    {
+        var options = KeycloakAdminOptions.TryCreate(Config(
+            ("Keycloak:Authority", "https://example.test/realms/acme"),
+            ("Keycloak:AdminClientId", "planvexa-admin"),
+            ("Keycloak:AdminClientSecret", "shh"),
+            ("Keycloak:AdminUser", "admin"),
+            ("Keycloak:AdminPassword", "secret")));
+
+        options.ShouldNotBeNull();
+        options.Realm.ShouldBe("acme");
+        // Scoped to one realm and revocable, rather than the master admin's blanket rights.
+        options.UseServiceAccount.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void A_half_configured_service_account_falls_back_to_the_admin_password()
+    {
+        var options = KeycloakAdminOptions.TryCreate(Config(
+            ("Keycloak:Authority", "https://example.test/realms/acme"),
+            ("Keycloak:AdminClientId", "planvexa-admin"),
+            ("Keycloak:AdminUser", "admin"),
+            ("Keycloak:AdminPassword", "secret")));
+
+        options.ShouldNotBeNull();
+        options.UseServiceAccount.ShouldBeFalse();
+    }
+}
+
+public sealed class UnmanagedIdentityProviderRegistrationTests
+{
+    [Fact]
+    public async Task It_reports_not_manageable_and_explains_what_the_operator_must_do()
+    {
+        var subject = new UnmanagedIdentityProviderRegistration();
+
+        var state = await subject.GetAsync();
+        state.Manageable.ShouldBeFalse();
+        state.RegistrationAllowed.ShouldBeNull();
+        state.Detail.ShouldNotBeNullOrWhiteSpace();
+
+        // Setting is a no-op rather than a silent success — the console must not claim it changed
+        // something it cannot reach.
+        (await subject.SetAsync(true)).Manageable.ShouldBeFalse();
     }
 }
 

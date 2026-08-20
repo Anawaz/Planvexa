@@ -217,6 +217,24 @@ builder.Services.AddSingleton<ILoggerProvider>(sp => sp.GetRequiredService<Planv
 builder.Services.AddHostedService<Planvexa.Api.Platform.InstanceLogBackgroundService>();
 builder.Services.AddScoped<Planvexa.Api.Platform.InstanceHealthService>();
 
+// ---- Identity-provider registration control ----
+// The host console's self-registration toggle has two halves: Planvexa's own gate (always enforced)
+// and whether the identity provider will create an account at all. Planvexa drives the second half only
+// when the operator supplies admin credentials — realm-admin rights are not something to take by
+// default — otherwise the console reports that the toggle governs Planvexa alone.
+var keycloakAdminOptions = Planvexa.Api.Platform.KeycloakAdminOptions.TryCreate(builder.Configuration);
+if (keycloakAdminOptions is not null)
+{
+    builder.Services.AddSingleton(keycloakAdminOptions);
+    builder.Services.AddHttpClient(Planvexa.Api.Platform.KeycloakRegistrationAdmin.ClientName, client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
+    });
+    builder.Services.AddScoped<Planvexa.SharedContracts.Platform.IIdentityProviderRegistration, Planvexa.Api.Platform.KeycloakRegistrationAdmin>();
+}
+// No `else`: AddInfrastructure already registered the no-op fallback, and the registration above wins
+// the resolve by being last.
+
 // ---- Current user (scoped, populated by middleware) ----
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();

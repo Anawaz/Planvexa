@@ -7,8 +7,55 @@ import { QueryState } from "@/components/ui/QueryState";
 import { brandingKeys } from "@/lib/branding/client";
 import { getInstanceSettings, updateInstanceSettings } from "@/lib/host/client";
 import { hostKeys } from "@/lib/host/queries";
-import type { UpdateInstanceSettingsInput, WorkspaceCreationPolicy } from "@/lib/host/types";
+import type { IdentityProviderState, UpdateInstanceSettingsInput, WorkspaceCreationPolicy } from "@/lib/host/types";
 import { IsoDateTime, MutationError, PageHeader, panelClassName, selectClassName, textInputClassName } from "./host-ui";
+
+/**
+ * Self-registration has two halves and only one of them is this instance's. Planvexa's toggle decides
+ * whether it ACCEPTS a new identity; the identity provider decides whether an account can be CREATED.
+ * When they disagree, the toggle looks broken — the sign-up link just fails — so the disagreement has
+ * to be visible right next to the control that causes it.
+ */
+function IdentityProviderNotice({
+  state,
+  enabled,
+}: {
+  state: IdentityProviderState;
+  enabled: boolean;
+}) {
+  // Planvexa manages the identity provider and both halves agree: nothing worth saying.
+  if (state.manageable && state.registrationAllowed === enabled) {
+    return null;
+  }
+
+  const blocking = enabled && state.registrationAllowed === false;
+  const unknown = state.registrationAllowed === null;
+
+  return (
+    <div
+      role={blocking ? "alert" : undefined}
+      className={
+        blocking
+          ? "rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+          : "rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+      }
+    >
+      <p className="font-semibold">
+        {blocking
+          ? "Sign-up is still blocked by your identity provider"
+          : unknown
+            ? "Identity provider state unknown"
+            : "Identity provider is out of step with this setting"}
+      </p>
+      <p className="mt-1">
+        {blocking
+          ? "Self-registration is on here, but your identity provider will not create new accounts — the sign-up link will fail until it is enabled there too."
+          : "This setting controls whether Planvexa accepts a new identity. Creating the account itself is your identity provider's decision."}
+      </p>
+      {state.detail ? <p className="mt-2 text-xs opacity-90">{state.detail}</p> : null}
+    </div>
+  );
+}
 
 export function SettingsPageClient() {
   const queryClient = useQueryClient();
@@ -98,6 +145,8 @@ export function SettingsPageClient() {
                   </span>
                 </span>
               </label>
+
+              <IdentityProviderNotice state={settings.identityProvider} enabled={access.allowSelfRegistration ?? false} />
 
               <div className="grid gap-2">
                 <label htmlFor="workspace-creation-policy" className="text-sm font-medium">
