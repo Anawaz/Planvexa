@@ -41,15 +41,22 @@ the last completed step instead of restarting. Status values: `todo` / `in-progr
 
 | Step | Description | Status | Notes |
 | --- | --- | --- | --- |
-| V1 | `dotnet build Planvexa.slnx -c Release` | done | Build succeeded, 0 warnings (with `-p:NuGetAudit=false`; see note below). |
-| V2 | `dotnet test Planvexa.slnx` | done | Architecture 23/23, Unit 655/655, Integration **431/431** — full suite, both `0092` and `0093` in place, nothing excluded. |
+| V1 | `dotnet build Planvexa.slnx -c Release` | done | Build succeeded, 0 warnings, **no audit flag needed** (NU1903 fixed, see below). |
+| V2 | `dotnet test Planvexa.slnx` | done | Architecture 23/23, Unit 655/655, Integration **431/431** — full suite, both `0092` and `0093` in place, nothing excluded. Re-run after the Testcontainers bump: same result. |
+| V6 | NU1903 (SSH.NET advisory) | done | Testcontainers.PostgreSql + .Minio 4.13.0 → 4.14.0, which pulls the patched SSH.NET 2026.0.0. |
 | V3 | `npm run lint && npm run build && npm run test` in `apps/web` | done | tsc clean; lint 0 errors (1 pre-existing warning in `FavoritesNav.tsx`, untouched); build ✓ with all 3 new routes; vitest 273/273 in 52 files. |
 | V4 | Diff review against the plan | done | Found + fixed by review: A's `0092` insert-ordering (→ `DEFERRABLE`), B's cross-listed-task remap, B's unvalidated `fromStatusId`, and the missing role gate on both status pages (wired to `role >= Admin`, matching `WorkManagementAuthorizer.CanManageStructure`). |
 | V5 | Docs update (README + `docs/`) | done | README: cascade-FK rule for new workspace-owned tables + a Statuses/workflows section. Spec: new §6.4 Workspace deletion, §11.1 resolution rules, §11.2 mandatory replacement + known ceiling. |
 
-## Known issue, pre-existing and out of scope
+## NU1903 (fixed here at the user's request)
 
-`dotnet build Planvexa.slnx -c Release` fails on **NU1903** — SSH.NET 2025.1.0 has a known
-high-severity advisory and arrives transitively via Testcontainers, with warnings-as-errors on.
-Confirmed to fail identically on a clean stashed tree, so it is not from this branch. All builds here
-used `-p:NuGetAudit=false`. Fixing it means bumping a dependency and belongs on its own branch.
+`dotnet build -c Release` used to fail on **NU1903**: SSH.NET 2025.1.0 carries
+[GHSA-q939-rpr3-3284](https://github.com/advisories/GHSA-q939-rpr3-3284) (high severity) and arrived
+transitively through Testcontainers, with warnings-as-errors on. It predated this branch — it failed
+identically on a clean tree.
+
+Fixed by bumping `Testcontainers.PostgreSql` and `Testcontainers.Minio` from 4.13.0 to 4.14.0 in
+`Directory.Packages.props`; that version references the patched SSH.NET 2026.0.0. No direct
+dependency on SSH.NET was added, so nothing new needs a licence/purpose entry (AGENTS.md rule 15).
+`dotnet build Planvexa.slnx -c Release` now succeeds with 0 warnings and no `NuGetAudit` override,
+and the full suite still passes.
