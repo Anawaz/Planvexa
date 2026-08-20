@@ -39,7 +39,12 @@ secrets.json
 Thumbs.db
 
 # Logs
-logs/
+# Anchored to the repo root on purpose. Unanchored, `logs/` matches a directory named "logs" at ANY
+# depth — which silently excluded apps/web/src/app/host/logs/ (the host console's log viewer route)
+# from a commit, so the page 404'd in production while `git status` reported a clean tree. Runtime log
+# output only ever lands at the root, and the other two logs/ directories in this repo (.run/logs,
+# apps/web/.next/dev/logs) are already covered by their own rules.
+/logs/
 *.log
 
 # Docker volumes / local data
