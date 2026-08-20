@@ -75,6 +75,7 @@ public sealed class MembershipServiceAuditTests
         public Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken cancellationToken = default)
             => Task.FromResult(workspaceId == workspace.Id ? workspace : null);
         public Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task DeleteCascadeAsync(Guid workspaceId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class FakeRoleStore : IRoleStore

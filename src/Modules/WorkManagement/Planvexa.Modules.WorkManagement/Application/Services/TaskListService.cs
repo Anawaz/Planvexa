@@ -44,8 +44,9 @@ public sealed class TaskListService(
         }
         else
         {
-            var defaultScheme = await provisioning.EnsureDefaultSchemeAsync(space.WorkspaceId, ct);
-            schemeId = defaultScheme.Id;
+            // The Space's own scheme when it has customized, otherwise the workspace default.
+            var effective = await provisioning.EffectiveSchemeAsync(space, ct);
+            schemeId = effective.Id;
         }
 
         var max = await lists.MaxPositionAsync(space.Id, ct);
@@ -304,10 +305,15 @@ public sealed class TaskListService(
     }
 }
 
-public sealed class StatusSchemeService(WorkServiceContext ctx, IStatusSchemeStore schemes, WorkspaceProvisioningService provisioning)
-    : WorkServiceBase(ctx)
+public sealed class StatusSchemeService(
+    WorkServiceContext ctx,
+    IStatusSchemeStore schemes,
+    WorkspaceProvisioningService provisioning,
+    ISpaceStore spaces,
+    ITaskListStore lists,
+    IWorkItemStore tasks) : WorkServiceBase(ctx)
 {
-    public async Task<IReadOnlyList<StatusSchemeDto>> ListAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<StatusSchemeDto>> ListAsync(bool workspaceLevelOnly = false, CancellationToken ct = default)
     {
         var workspaceId = RequireWorkspace();
         WorkManagementAuthorizer.EnsureRead((await AccessAsync(workspaceId, ct))?.Role);
@@ -316,7 +322,7 @@ public sealed class StatusSchemeService(WorkServiceContext ctx, IStatusSchemeSto
         await provisioning.EnsureDefaultSchemeAsync(workspaceId, ct);
         await SaveAsync(ct);
 
-        var list = await schemes.ListByWorkspaceAsync(workspaceId, ct);
+        var list = await schemes.ListByWorkspaceAsync(workspaceId, workspaceLevelOnly, ct);
         return list.Select(WorkMapper.ToDto).ToList();
     }
 
@@ -358,5 +364,310 @@ public sealed class StatusSchemeService(WorkServiceContext ctx, IStatusSchemeSto
         Audit("status_scheme.transitions_set", nameof(StatusScheme), scheme.Id, new { statusId, toStatusIds });
         await SaveAsync(ct);
         return WorkMapper.ToDto(scheme);
+    }
+
+    public async Task<StatusSchemeDto> RenameAsync(Guid schemeId, string name, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        scheme.Rename(name);
+        Audit("status_scheme.renamed", nameof(StatusScheme), scheme.Id, new { name });
+        await SaveAsync(ct);
+        return WorkMapper.ToDto(scheme);
+    }
+
+    public async Task<StatusSchemeDto> AddStatusAsync(
+        Guid schemeId, string name, StatusCategory category, string? color, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        var max = scheme.Statuses.Count == 0 ? (double?)null : scheme.Statuses.Max(s => s.Position);
+        var status = scheme.AddStatus(
+            NewId(), name, category, string.IsNullOrWhiteSpace(color) ? "#8b8b8b" : color!, Positioning.Append(max));
+
+        Audit("status_scheme.status_added", nameof(StatusScheme), scheme.Id, new { statusId = status.Id, name, category });
+        await SaveAsync(ct);
+        return WorkMapper.ToDto(scheme);
+    }
+
+    public async Task<StatusSchemeDto> UpdateStatusAsync(
+        Guid schemeId, Guid statusId, string? name, StatusCategory? category, string? color, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        scheme.UpdateStatus(statusId, name, category, color);
+        Audit("status_scheme.status_updated", nameof(StatusScheme), scheme.Id, new { statusId, name, category, color });
+        await SaveAsync(ct);
+        return WorkMapper.ToDto(scheme);
+    }
+
+    public async Task<StatusSchemeDto> MoveStatusAsync(Guid schemeId, Guid statusId, int newIndex, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        scheme.MoveStatus(statusId, newIndex);
+        Audit("status_scheme.status_moved", nameof(StatusScheme), scheme.Id, new { statusId, newIndex });
+        await SaveAsync(ct);
+        return WorkMapper.ToDto(scheme);
+    }
+
+    /// <summary>
+    /// Removes a status after moving every task sitting on it to <paramref name="moveTasksToStatusId"/> —
+    /// the caller must name the replacement, there is no implicit fallback.
+    /// </summary>
+    public async Task<StatusSchemeDto> RemoveStatusAsync(
+        Guid schemeId, Guid statusId, Guid moveTasksToStatusId, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        if (scheme.Statuses.All(s => s.Id != statusId))
+        {
+            throw new ValidationAppException("The status does not belong to this scheme.");
+        }
+
+        // Checked before the replacement is validated: when this is the only status there is no legal
+        // replacement to name, so "you cannot remove it at all" is the honest answer.
+        if (scheme.Statuses.Count == 1)
+        {
+            throw new ConflictException("A workflow must keep at least one status.");
+        }
+
+        if (moveTasksToStatusId == Guid.Empty)
+        {
+            throw new ValidationAppException("A replacement status is required so the removed status's tasks are not stranded.");
+        }
+
+        if (moveTasksToStatusId == statusId)
+        {
+            throw new ValidationAppException("The replacement status must differ from the status being removed.");
+        }
+
+        var target = scheme.Statuses.FirstOrDefault(s => s.Id == moveTasksToStatusId)
+            ?? throw new ValidationAppException("The replacement status must belong to this scheme.");
+
+        await RemapTasksAsync(statusId, target, ct);
+
+        // ponytail: SavedView filter JSON ("status" conditions) and Automations rule config (toStatusId)
+        // can still hold the removed id — that looseness predates this change and a stale filter simply
+        // matches nothing. Rewrite them here only if that ever becomes a real complaint.
+        scheme.RemoveStatus(statusId);
+
+        Audit("status_scheme.status_removed", nameof(StatusScheme), scheme.Id, new { statusId, moveTasksToStatusId });
+        await SaveAsync(ct);
+        return WorkMapper.ToDto(scheme);
+    }
+
+    public async Task DeleteSchemeAsync(Guid schemeId, CancellationToken ct = default)
+    {
+        var scheme = await LoadForManageAsync(schemeId, ct);
+        if (scheme.IsDefault)
+        {
+            throw new ConflictException("The default workflow cannot be deleted.");
+        }
+
+        var users = await lists.ListBySchemeAsync(schemeId, ct);
+        if (users.Count > 0)
+        {
+            throw new ConflictException($"{users.Count} {(users.Count == 1 ? "list uses" : "lists use")} this workflow.");
+        }
+
+        // A Space override loses its owner along with the scheme; the FK is ON DELETE SET NULL, but
+        // clearing it here keeps the tracked graph and the database saying the same thing.
+        if (scheme.SpaceId is { } spaceId && await spaces.FindAsync(spaceId, ct) is { } space)
+        {
+            space.SetStatusScheme(null, UserId, Now);
+        }
+
+        schemes.Remove(scheme);
+        Audit("status_scheme.deleted", nameof(StatusScheme), scheme.Id);
+        await SaveAsync(ct);
+    }
+
+    /// <summary>The Space's effective scheme, and whether it is the Space's own override.</summary>
+    public async Task<SpaceStatusSchemeDto> GetForSpaceAsync(Guid spaceId, CancellationToken ct = default)
+    {
+        var space = await RequireSpaceAsync(spaceId, ct);
+        await EnsureReadAsync(space, WorkResourceTypes.Space, ct);
+
+        var scheme = await provisioning.EffectiveSchemeAsync(space, ct);
+        await SaveAsync(ct);
+        return new SpaceStatusSchemeDto(WorkMapper.ToDto(scheme), space.StatusSchemeId is not null);
+    }
+
+    /// <summary>
+    /// Gives the Space its own scheme: a clone of its current effective scheme (lossless — CloneFor's
+    /// id map moves every task to the matching status), or a fresh scheme built from
+    /// <paramref name="presetStatuses"/>. A preset has no id map to follow, so those tasks all land on the
+    /// new scheme's DefaultStatus() — the caller picked a different workflow, so there is nothing to match.
+    /// Idempotent: a Space that already has an override gets it back unchanged.
+    /// </summary>
+    public async Task<SpaceStatusSchemeDto> CustomizeSpaceAsync(
+        Guid spaceId,
+        IReadOnlyList<(string Name, StatusCategory Category, string? Color)>? presetStatuses,
+        CancellationToken ct = default)
+    {
+        var space = await RequireSpaceAsync(spaceId, ct);
+        await EnsureManageStructureAsync(space, WorkResourceTypes.Space, ct);
+
+        if (space.StatusSchemeId is { } existingId)
+        {
+            var existing = await schemes.FindAsync(existingId, ct)
+                ?? throw new NotFoundException("Status scheme not found.");
+            return new SpaceStatusSchemeDto(WorkMapper.ToDto(existing), true);
+        }
+
+        var source = await provisioning.EffectiveSchemeAsync(space, ct);
+
+        StatusScheme clone;
+        IReadOnlyDictionary<Guid, Guid>? map;
+        if (presetStatuses is { Count: > 0 })
+        {
+            clone = StatusScheme.CreateForSpace(NewId(), space.WorkspaceId, space.Id, space.Name);
+            double position = Positioning.Step;
+            foreach (var s in presetStatuses)
+            {
+                clone.AddStatus(NewId(), s.Name, s.Category, string.IsNullOrWhiteSpace(s.Color) ? "#8b8b8b" : s.Color!, position);
+                position += Positioning.Step;
+            }
+
+            map = null;
+        }
+        else
+        {
+            (clone, map) = source.CloneFor(NewId(), space.Id, NewId);
+        }
+
+        schemes.Add(clone);
+        space.SetStatusScheme(clone.Id, UserId, Now);
+
+        // Scoped per list, not per status: the source scheme is still in use by every OTHER Space, so
+        // remapping by status id would drag their tasks onto this Space's clone too.
+        var fallback = clone.DefaultStatus();
+        foreach (var list in await lists.ListBySpaceAsync(space.Id, ct))
+        {
+            if (list.StatusSchemeId != source.Id)
+            {
+                continue;
+            }
+
+            list.SetStatusScheme(clone.Id, UserId, Now);
+
+            // ponytail: per-task loop; batch if a single status ever holds 10k+ tasks.
+            foreach (var task in await tasks.ListByListAsync(list.Id, ct))
+            {
+                // ListByListAsync is membership-driven, not filtered by WorkItem.ListId, so it also
+                // returns tasks merely ADDED to this list. Those keep their primary list's scheme —
+                // moving them here would leave their status foreign to their own list's workflow.
+                if (task.ListId != list.Id)
+                {
+                    continue;
+                }
+
+                var target = map is not null && map.TryGetValue(task.StatusId, out var mapped)
+                    ? clone.Statuses.First(s => s.Id == mapped)
+                    : fallback;
+                task.ChangeStatus(target.Id, target.IsCompletedCategory, UserId, Now);
+            }
+        }
+
+        Audit("space.status_scheme_customized", nameof(Space), space.Id, new { schemeId = clone.Id });
+        await SaveAsync(ct);
+        return new SpaceStatusSchemeDto(WorkMapper.ToDto(clone), true);
+    }
+
+    /// <summary>
+    /// Drops the Space's override and puts its lists back on the workspace default, moving every task
+    /// through <paramref name="mapping"/>. Every status of the Space scheme that still holds tasks needs a
+    /// mapping entry — the caller decides where those tasks land, this never guesses.
+    /// </summary>
+    public async Task<SpaceStatusSchemeDto> ResetSpaceAsync(
+        Guid spaceId, IReadOnlyList<StatusMappingInput> mapping, CancellationToken ct = default)
+    {
+        var space = await RequireSpaceAsync(spaceId, ct);
+        await EnsureManageStructureAsync(space, WorkResourceTypes.Space, ct);
+
+        var workspaceDefault = await provisioning.EnsureDefaultSchemeAsync(space.WorkspaceId, ct);
+        if (space.StatusSchemeId is not { } spaceSchemeId)
+        {
+            return new SpaceStatusSchemeDto(WorkMapper.ToDto(workspaceDefault), false);
+        }
+
+        var spaceScheme = await schemes.FindAsync(spaceSchemeId, ct)
+            ?? throw new NotFoundException("Status scheme not found.");
+
+        var missing = new List<string>();
+        foreach (var status in spaceScheme.Statuses)
+        {
+            if (mapping.All(m => m.FromStatusId != status.Id) && await tasks.CountByStatusAsync(status.Id, ct) > 0)
+            {
+                missing.Add(status.Name);
+            }
+        }
+
+        if (missing.Count > 0)
+        {
+            throw new ValidationAppException(
+                $"A replacement status is required for: {string.Join(", ", missing)}.");
+        }
+
+        foreach (var entry in mapping)
+        {
+            // Without this, a caller could name any status in the workspace and drag unrelated Spaces'
+            // tasks onto a workspace-default status.
+            if (spaceScheme.Statuses.All(s => s.Id != entry.FromStatusId))
+            {
+                throw new ValidationAppException("The status being replaced must belong to this space's workflow.");
+            }
+
+            var target = workspaceDefault.Statuses.FirstOrDefault(s => s.Id == entry.ToStatusId)
+                ?? throw new ValidationAppException("The replacement status must belong to the workspace default workflow.");
+            await RemapTasksAsync(entry.FromStatusId, target, ct);
+        }
+
+        foreach (var list in await lists.ListBySchemeAsync(spaceScheme.Id, ct))
+        {
+            list.SetStatusScheme(workspaceDefault.Id, UserId, Now);
+        }
+
+        space.SetStatusScheme(null, UserId, Now);
+        schemes.Remove(spaceScheme);
+
+        Audit("space.status_scheme_reset", nameof(Space), space.Id, new { removedSchemeId = spaceScheme.Id });
+        await SaveAsync(ct);
+        return new SpaceStatusSchemeDto(WorkMapper.ToDto(workspaceDefault), false);
+    }
+
+    /// <summary>Moves every task on <paramref name="fromStatusId"/> onto <paramref name="target"/> through
+    /// WorkItem.ChangeStatus, so IsCompleted/CompletedAtUtc and the status-changed event stay correct.</summary>
+    private async Task RemapTasksAsync(Guid fromStatusId, StatusDefinition target, CancellationToken ct)
+    {
+        // ponytail: per-task loop; batch if a single status ever holds 10k+ tasks.
+        foreach (var task in await tasks.ListByStatusAsync(fromStatusId, ct))
+        {
+            task.ChangeStatus(target.Id, target.IsCompletedCategory, UserId, Now);
+        }
+    }
+
+    private async Task<StatusScheme> LoadForManageAsync(Guid schemeId, CancellationToken ct)
+    {
+        var workspaceId = RequireWorkspace();
+        WorkManagementAuthorizer.EnsureManageStructure((await AccessAsync(workspaceId, ct))?.Role);
+
+        var scheme = await schemes.FindAsync(schemeId, ct);
+        if (scheme is null || scheme.WorkspaceId != workspaceId)
+        {
+            throw new NotFoundException("Status scheme not found.");
+        }
+
+        return scheme;
+    }
+
+    private async Task<Space> RequireSpaceAsync(Guid spaceId, CancellationToken ct)
+    {
+        var workspaceId = RequireWorkspace();
+        WorkManagementAuthorizer.EnsureRead((await AccessAsync(workspaceId, ct))?.Role);
+
+        var space = await spaces.FindAsync(spaceId, ct);
+        if (space is null || space.IsDeleted || space.WorkspaceId != workspaceId)
+        {
+            throw new NotFoundException("Space not found.");
+        }
+
+        return space;
     }
 }

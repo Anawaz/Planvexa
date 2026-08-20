@@ -172,8 +172,18 @@ public sealed class DbUpMigrationTests : IAsyncLifetime
         PlanvexaDatabase.Upgrade(ConnectionString);
 
         var workspaceId = Guid.CreateVersion7();
+        var ownerId = Guid.CreateVersion7();
         var schemeId = Guid.CreateVersion7();
         var statusId = Guid.CreateVersion7();
+
+        // 0092 gave every workspace_id column a real foreign key to tenancy.workspaces, so the
+        // synthetic child rows below need an actual workspace to hang off.
+        await ExecuteAsync($"""
+            INSERT INTO identity.users (id, subject, email, display_name, is_active, created_at_utc)
+            VALUES ('{ownerId}', 'child-cols-{ownerId:N}', 'child-cols-{ownerId:N}@planvexa.test', 'Child Cols', true, now());
+            INSERT INTO tenancy.workspaces (id, workspace_id, name, slug, status, created_by_user_id, created_at_utc)
+            VALUES ('{workspaceId}', '{workspaceId}', 'Child Cols Workspace', 'child-cols-{workspaceId:N}', 'Active', '{ownerId}', now());
+            """);
 
         await ExecuteAsync($"""
             INSERT INTO work.status_schemes (id, workspace_id, name, is_default)

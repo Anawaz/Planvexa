@@ -2,10 +2,12 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, buttonStyles } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ApiError, apiClient } from "@/lib/api-client";
+import { useAppContext } from "@/lib/app-context/AppContext";
 
 type CreatedWorkspace = { id: string; name: string; slug: string; status: string; createdAtUtc: string };
 
@@ -19,6 +21,8 @@ function slugify(name: string) {
 
 export default function OnboardingPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { setCurrentWorkspaceId } = useAppContext();
   // The workspace was created but navigating into it failed — a distinct failure the user must see.
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
@@ -27,11 +31,16 @@ export default function OnboardingPage() {
       // Direct Workspace onboarding (ADR 0015): no Organization step. The server provisions the
       // starter Space/List and makes the caller Owner in one transaction.
       apiClient.post<CreatedWorkspace>("/workspaces", body),
-    onSuccess: async () => {
+    onSuccess: async (workspace) => {
       try {
-        await queryClient.invalidateQueries({ queryKey: ["workspaces", "all"] });
-        // Full navigation so the app shell re-bootstraps cleanly and resolves the new Workspace.
-        window.location.assign("/app");
+        // Refetch memberships FIRST so the new workspace is already in the list, then select it
+        // through the same path the workspace switcher uses. Seeding localStorage and hard-navigating
+        // instead does not work: AppContext re-persists whichever workspace it resolves while the
+        // membership list is still in flight, which put a user who already had a workspace straight
+        // back into the old one after creating a new one.
+        await queryClient.invalidateQueries({ queryKey: ["workspaces", "me"] });
+        setCurrentWorkspaceId(workspace.id);
+        router.push("/app");
       } catch (error) {
         setBootstrapError(error instanceof Error ? error.message : "Unknown error.");
       }

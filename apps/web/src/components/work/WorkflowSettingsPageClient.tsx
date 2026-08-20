@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { QueryState } from "@/components/ui/QueryState";
 import { listStatusSchemes, setStatusTransitions } from "@/lib/work/client";
 import { workKeys } from "@/lib/work/queries";
 import type { StatusDefinition, StatusScheme } from "@/lib/work/types";
@@ -90,34 +91,36 @@ export function WorkflowSettingsPageClient() {
         </p>
       </div>
 
-      {schemesQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading workflows…</p>
-      ) : schemes.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-          No status schemes yet.
-        </p>
-      ) : (
-        schemes.map((scheme) => (
-          <section
-            key={scheme.id}
-            aria-labelledby={`scheme-${scheme.id}-title`}
-            className="rounded-[var(--radius)] border border-border bg-card shadow-sm"
-          >
-            <header className="border-b border-border p-4">
-              <h2 id={`scheme-${scheme.id}-title`} className="text-sm font-semibold">
-                {scheme.name}
-              </h2>
-            </header>
-            <div>
-              {[...scheme.statuses]
-                .sort((a, b) => a.position - b.position)
-                .map((status) => (
-                  <StatusTransitionRow key={status.id} scheme={scheme} status={status} />
-                ))}
-            </div>
-          </section>
-        ))
-      )}
+      {/* Same reason as the statuses settings page: `data ?? []` turned a failed load into
+          "No status schemes yet.", an empty state that hides the failure instead of reporting it. */}
+      <QueryState query={schemesQuery} loadingLabel="Loading workflows…">
+        {schemes.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+            No status schemes yet.
+          </p>
+        ) : (
+          schemes.map((scheme) => (
+            <section
+              key={scheme.id}
+              aria-labelledby={`scheme-${scheme.id}-title`}
+              className="rounded-[var(--radius)] border border-border bg-card shadow-sm"
+            >
+              <header className="border-b border-border p-4">
+                <h2 id={`scheme-${scheme.id}-title`} className="text-sm font-semibold">
+                  {scheme.name}
+                </h2>
+              </header>
+              <div>
+                {[...scheme.statuses]
+                  .sort((a, b) => a.position - b.position)
+                  .map((status) => (
+                    <StatusTransitionRow key={status.id} scheme={scheme} status={status} />
+                  ))}
+              </div>
+            </section>
+          ))
+        )}
+      </QueryState>
     </section>
   );
 }

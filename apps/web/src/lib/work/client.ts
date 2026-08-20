@@ -19,6 +19,8 @@ import type {
   Reminder,
   SavedView,
   Space,
+  SpaceStatusScheme,
+  StatusCategory,
   StatusScheme,
   Tag,
   Task,
@@ -201,6 +203,67 @@ export async function getList(listId: string) {
 /** All schemes for the workspace; callers pick by the list's statusSchemeId. */
 export async function listStatusSchemes() {
   return apiClient.get<StatusScheme[]>("/api/v1/status-schemes");
+}
+
+/** Only the workspace-level schemes — per-Space overrides are excluded, so the workspace status
+ * settings page shows the defaults and nothing else. Kept separate from `listStatusSchemes` because
+ * that one is passed straight to `queryFn`, which would supply the query context as an argument. */
+export async function listWorkspaceStatusSchemes() {
+  return apiClient.get<StatusScheme[]>("/api/v1/status-schemes?workspaceLevelOnly=true");
+}
+
+export type StatusInput = { name: string; category: StatusCategory; color?: string };
+
+export async function createStatusScheme(name: string, statuses: StatusInput[]) {
+  return apiClient.post<StatusScheme>("/api/v1/status-schemes", { name, statuses });
+}
+
+export async function renameStatusScheme(schemeId: string, name: string) {
+  return apiClient.patch<StatusScheme>(`/api/v1/status-schemes/${schemeId}`, { name });
+}
+
+export async function deleteStatusScheme(schemeId: string) {
+  return apiClient.delete<void>(`/api/v1/status-schemes/${schemeId}`);
+}
+
+export async function addStatus(schemeId: string, status: StatusInput) {
+  return apiClient.post<StatusScheme>(`/api/v1/status-schemes/${schemeId}/statuses`, status);
+}
+
+/** Every field is optional (null = unchanged); `index` reorders 0-based after the edit. */
+export async function updateStatus(
+  schemeId: string,
+  statusId: string,
+  patch: { name?: string; category?: StatusCategory; color?: string; index?: number },
+) {
+  return apiClient.patch<StatusScheme>(`/api/v1/status-schemes/${schemeId}/statuses/${statusId}`, patch);
+}
+
+/** A status is never removed out from under its tasks — the replacement is required, not optional. */
+export async function removeStatus(schemeId: string, statusId: string, moveTasksToStatusId: string) {
+  return apiClient.delete<StatusScheme>(`/api/v1/status-schemes/${schemeId}/statuses/${statusId}`, {
+    moveTasksToStatusId,
+  });
+}
+
+export async function getSpaceStatusScheme(spaceId: string) {
+  return apiClient.get<SpaceStatusScheme>(`/api/v1/spaces/${spaceId}/status-scheme`);
+}
+
+/** No preset clones the current effective scheme losslessly; a preset moves every task in the Space
+ * onto the new scheme's default status. Idempotent on an already-customized Space. */
+export async function customizeSpaceStatusScheme(spaceId: string, presetStatuses?: StatusInput[]) {
+  return apiClient.post<SpaceStatusScheme>(`/api/v1/spaces/${spaceId}/status-scheme`, {
+    presetStatuses: presetStatuses ?? null,
+  });
+}
+
+/** Reverts to the workspace default; every Space status that still holds tasks needs a mapping entry. */
+export async function resetSpaceStatusScheme(
+  spaceId: string,
+  mapping: { fromStatusId: string; toStatusId: string }[],
+) {
+  return apiClient.delete<SpaceStatusScheme>(`/api/v1/spaces/${spaceId}/status-scheme`, { mapping });
 }
 
 /** Configures the optional allowed-transitions restriction for one status; an empty list clears it

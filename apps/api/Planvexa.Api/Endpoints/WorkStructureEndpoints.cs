@@ -1,5 +1,6 @@
 namespace Planvexa.Api.Endpoints;
 
+using Microsoft.AspNetCore.Mvc;
 using Planvexa.Modules.WorkManagement.Application;
 using Planvexa.Modules.WorkManagement.Application.Services;
 using Planvexa.Modules.WorkManagement.Domain;
@@ -13,6 +14,7 @@ public static class WorkStructureEndpoints
         MapFolders(api);
         MapLists(api);
         MapStatusSchemes(api);
+        MapSpaceStatusSchemes(api);
         MapTags(api);
         MapCustomFields(api);
         MapViews(api);
@@ -200,7 +202,9 @@ public static class WorkStructureEndpoints
     {
         var group = api.MapGroup("/status-schemes").RequireAuthorization();
 
-        group.MapGet("/", async (StatusSchemeService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(ct)));
+        // workspaceLevelOnly=true hides per-Space overrides (the workspace status settings page).
+        group.MapGet("/", async (bool? workspaceLevelOnly, StatusSchemeService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(workspaceLevelOnly ?? false, ct)));
 
         group.MapPost("/", async (CreateStatusSchemeRequest r, StatusSchemeService svc, CancellationToken ct) =>
         {
@@ -211,12 +215,70 @@ public static class WorkStructureEndpoints
             return Results.Created($"/api/v1/status-schemes/{dto.Id}", dto);
         });
 
+        group.MapPatch("/{schemeId:guid}", async (Guid schemeId, RenameStatusSchemeRequest r, StatusSchemeService svc, CancellationToken ct) =>
+                Results.Ok(await svc.RenameAsync(schemeId, r.Name, ct)))
+            .AddEndpointFilter<ValidationFilter<RenameStatusSchemeRequest>>();
+
+        group.MapDelete("/{schemeId:guid}", async (Guid schemeId, StatusSchemeService svc, CancellationToken ct) =>
+        {
+            await svc.DeleteSchemeAsync(schemeId, ct);
+            return Results.NoContent();
+        });
+
+        group.MapPost("/{schemeId:guid}/statuses", async (Guid schemeId, AddStatusRequest r, StatusSchemeService svc, CancellationToken ct) =>
+                Results.Ok(await svc.AddStatusAsync(schemeId, r.Name, StatusCategories.Parse(r.Category), r.Color, ct)))
+            .AddEndpointFilter<ValidationFilter<AddStatusRequest>>();
+
+        // Rename/recolour/recategorize and (optional) reorder in one call — index is applied after the edit.
+        group.MapPatch("/{schemeId:guid}/statuses/{statusId:guid}", async (
+                Guid schemeId, Guid statusId, UpdateStatusRequest r, StatusSchemeService svc, CancellationToken ct) =>
+            {
+                var dto = await svc.UpdateStatusAsync(
+                    schemeId, statusId, r.Name, r.Category is null ? null : StatusCategories.Parse(r.Category), r.Color, ct);
+                return Results.Ok(r.Index is { } index ? await svc.MoveStatusAsync(schemeId, statusId, index, ct) : dto);
+            })
+            .AddEndpointFilter<ValidationFilter<UpdateStatusRequest>>();
+
+        // moveTasksToStatusId is REQUIRED: a status is never removed out from under its tasks.
+        // [FromBody] is not decoration — minimal APIs refuse to INFER a body on DELETE, so without it
+        // the endpoint fails at startup ("Body was inferred but the method does not allow inferred body").
+        group.MapDelete("/{schemeId:guid}/statuses/{statusId:guid}", async (
+                Guid schemeId, Guid statusId, [FromBody] RemoveStatusRequest r, StatusSchemeService svc, CancellationToken ct) =>
+                Results.Ok(await svc.RemoveStatusAsync(schemeId, statusId, r.MoveTasksToStatusId, ct)))
+            .AddEndpointFilter<ValidationFilter<RemoveStatusRequest>>();
+
         // Optional workflow restriction (spec section 11): the statuses a given status may move to.
         // An empty toStatusIds clears the restriction. Enforced server-side by WorkItemService on every
         // status change, not only reflected here for display.
         group.MapPut("/{schemeId:guid}/statuses/{statusId:guid}/transitions", async (
                 Guid schemeId, Guid statusId, SetStatusTransitionsRequest r, StatusSchemeService svc, CancellationToken ct) =>
                 Results.Ok(await svc.SetTransitionsAsync(schemeId, statusId, r.ToStatusIds, ct)));
+    }
+
+    /// <summary>Per-Space status overrides: a Space inherits the workspace default until it customizes.</summary>
+    private static void MapSpaceStatusSchemes(RouteGroupBuilder api)
+    {
+        var group = api.MapGroup("/spaces/{spaceId:guid}/status-scheme").RequireAuthorization();
+
+        group.MapGet("/", async (Guid spaceId, StatusSchemeService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetForSpaceAsync(spaceId, ct)));
+
+        // Clones the Space's current effective scheme, or builds one from the supplied preset statuses.
+        group.MapPost("/", async (Guid spaceId, CustomizeSpaceStatusSchemeRequest r, StatusSchemeService svc, CancellationToken ct) =>
+            {
+                var preset = r.PresetStatuses?
+                    .Select(s => (s.Name, StatusCategories.Parse(s.Category), s.Color))
+                    .ToList();
+                return Results.Ok(await svc.CustomizeSpaceAsync(spaceId, preset, ct));
+            })
+            .AddEndpointFilter<ValidationFilter<CustomizeSpaceStatusSchemeRequest>>();
+
+        // Reverts to the workspace default; every Space status that still holds tasks needs a mapping entry.
+        group.MapDelete("/", async (Guid spaceId, [FromBody] ResetSpaceStatusSchemeRequest r, StatusSchemeService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ResetSpaceAsync(
+                spaceId,
+                r.Mapping?.Select(m => new StatusMappingInput(m.FromStatusId, m.ToStatusId)).ToList() ?? [],
+                ct)));
     }
 
     private static void MapTags(RouteGroupBuilder api)

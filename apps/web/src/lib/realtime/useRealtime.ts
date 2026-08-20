@@ -244,7 +244,7 @@ export function useRealtime() {
     });
 
     activeConnection = connection;
-    void connection
+    const started = connection
       .start()
       .then(() => (disposed ? undefined : connection.invoke("JoinWorkspace", workspaceId)))
       .catch(() => undefined);
@@ -256,7 +256,11 @@ export function useRealtime() {
         activeConnection = null;
       }
 
-      void connection.stop();
+      // Wait for start() to settle before stopping. Stopping mid-handshake — which happens whenever
+      // the user navigates away within the connection window — makes SignalR's own logger write
+      // "Failed to start the HttpConnection before stop() was called." to console.error. The
+      // teardown was always correct; this only stops it shouting about a race it already handles.
+      void started.then(() => connection.stop()).catch(() => undefined);
     };
     // Workspace membership is baked into the connection and group membership: rebuild on change
     // rather than bookkeeping Leave/Join.

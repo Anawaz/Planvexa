@@ -7,6 +7,7 @@ export const workKeys = {
   lists: (spaceId: string) => [...workKeys.all, "spaces", spaceId, "lists"] as const,
   list: (listId: string) => [...workKeys.all, "lists", listId] as const,
   statusSchemes: () => [...workKeys.all, "status-schemes"] as const,
+  spaceStatusScheme: (spaceId: string) => [...workKeys.all, "spaces", spaceId, "status-scheme"] as const,
   tasksAll: () => [...workKeys.all, "tasks"] as const,
   tasksRoot: (listId: string) => [...workKeys.tasksAll(), listId] as const,
   tasks: (listId: string, filters: ListTasksFilters = {}) =>

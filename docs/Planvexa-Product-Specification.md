@@ -240,6 +240,24 @@ Workspace settings should include areas such as:
 - Audit history
 - Branding where supported
 
+### 6.4 Workspace deletion
+
+An Owner may permanently delete a Workspace. Deletion is irreversible — there is no archive or
+restore path — so it requires both the Owner role and retyping the Workspace slug, and it can only be
+performed from inside the Workspace being deleted.
+
+Deletion removes every row the Workspace owns. This is enforced in the database rather than in
+application code: every table carrying a `workspace_id` has a foreign key to `tenancy.workspaces`
+with `ON DELETE CASCADE`, so the operation is a single `DELETE` and any future workspace-owned table
+inherits the behaviour by declaring its own key the same way. Stored files under the Workspace's blob
+prefix are swept afterwards on a best-effort basis; the database rows are already committed by then,
+so a sweep failure is logged rather than surfaced.
+
+Two things deliberately outlive the Workspace: `audit.audit_events` and `platform.outbox_messages`
+are excluded from the cascade. The `workspace.deleted` audit record is written and committed before
+the delete, so the deletion remains provable afterwards; the deleted Workspace's outbox rows are
+cleared explicitly so nothing is published for a Workspace that no longer exists.
+
 ---
 
 ## 7. Space
@@ -458,6 +476,36 @@ Workflow capabilities should include:
 - Reusable workflow templates
 
 Workflows may be configured at appropriate hierarchy levels and inherited where applicable.
+
+### 11.1 Resolution: Workspace defaults, optional Space overrides
+
+A status scheme is either **workspace-level** (`space_id IS NULL`) or a **Space override**
+(`space_id` set). Exactly one workspace-level scheme is the workspace default, and only a
+workspace-level scheme can be the default.
+
+A Space resolves its **effective scheme** as `spaces.status_scheme_id ?? the workspace default`. A
+Space with no override inherits, and every Space that inherits shares the same scheme — so editing an
+inherited scheme changes them all, which is why the per-Space screen is read-only until the Space
+customizes. A List still stores its own `status_scheme_id` and that remains the single resolution
+point for every task operation; what changed is only the fallback used when a new List is created,
+which is now the Space's effective scheme rather than the workspace default.
+
+Customizing a Space clones its effective scheme and moves each task to the matching status in the
+clone, so the operation is lossless. Customizing *from a template* has no such correspondence and
+moves every task in the Space to the new scheme's default status. Tasks that are merely cross-listed
+into the Space keep their primary List's scheme and are not moved.
+
+### 11.2 Removing a status always names a replacement
+
+`tasks.status_id` has no foreign key to `statuses`, so a removed status would silently orphan its
+tasks. Every operation that would strand tasks therefore requires the caller to name a replacement
+status, and the tasks are moved to it through the normal status-change path (so completion flags and
+status-changed events stay correct). This applies to removing a single status and to reverting a
+Space to the workspace default, which requires a mapping for every Space status that still holds
+tasks. A workflow may never drop below one status.
+
+Known ceiling: saved-view filter JSON and Automations rule config can still reference a removed
+status id. Those references are not rewritten — a stale filter simply matches nothing.
 
 ---
 

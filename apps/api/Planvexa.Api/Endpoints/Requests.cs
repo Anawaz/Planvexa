@@ -13,6 +13,10 @@ public sealed record ChangeMemberRoleRequest(string Role);
 
 public sealed record TransferOwnershipRequest(Guid MembershipId);
 
+/// <summary>The workspace's own slug, retyped by the caller — this delete is irreversible, so the
+/// confirmation is a trust-boundary check the server enforces, not a UI nicety.</summary>
+public sealed record DeleteWorkspaceRequest(string ConfirmSlug);
+
 public sealed record CreateTeamRequest(string Name, string? Description);
 
 public sealed record UpdateTeamRequest(string Name, string? Description);
@@ -59,6 +63,14 @@ public sealed class TransferOwnershipRequestValidator : AbstractValidator<Transf
     public TransferOwnershipRequestValidator()
     {
         RuleFor(x => x.MembershipId).NotEmpty();
+    }
+}
+
+public sealed class DeleteWorkspaceRequestValidator : AbstractValidator<DeleteWorkspaceRequest>
+{
+    public DeleteWorkspaceRequestValidator()
+    {
+        RuleFor(x => x.ConfirmSlug).NotEmpty().MaximumLength(63);
     }
 }
 

@@ -56,6 +56,44 @@ export default async function globalTeardown() {
       }
 
       console.log(`[e2e] teardown removed ${deleted}/${tasks.length} sandbox task(s).`);
+
+      // Scratch workflows from statuses.spec.ts. Its own afterEach deletes them through the UI, but
+      // that hook does not run when a test times out mid-way — and they accumulate in the demo
+      // workspace one failed run at a time (39 of them piled up before this existed). Prefix-scoped,
+      // so nothing a human created is ever touched.
+      const schemes = await context.get("/api/proxy/status-schemes?workspaceLevelOnly=true");
+      if (schemes.ok()) {
+        const scratch = ((await schemes.json()) as { id: string; name: string }[]).filter((scheme) =>
+          scheme.name.startsWith("E2E "),
+        );
+        let removed = 0;
+        for (const scheme of scratch) {
+          if ((await context.delete(`/api/proxy/status-schemes/${scheme.id}`)).ok()) removed += 1;
+        }
+        if (scratch.length > 0) {
+          console.log(`[e2e] teardown removed ${removed}/${scratch.length} scratch workflow(s).`);
+        }
+      }
+
+      // Throwaway workspaces from workspace-lifecycle.spec.ts, same reasoning. The delete endpoint
+      // requires the workspace's own slug as confirmation and must be called from inside it.
+      const workspaces = await context.get("/api/proxy/workspaces/me");
+      if (workspaces.ok()) {
+        const strays = ((await workspaces.json()) as { id: string; name: string; slug: string }[]).filter(
+          (workspace) => workspace.name.startsWith("E2E Throwaway"),
+        );
+        let removed = 0;
+        for (const workspace of strays) {
+          const result = await context.post(`/api/proxy/workspaces/${workspace.id}/delete`, {
+            headers: { "X-Workspace": workspace.id },
+            data: { confirmSlug: workspace.slug },
+          });
+          if (result.ok()) removed += 1;
+        }
+        if (strays.length > 0) {
+          console.log(`[e2e] teardown removed ${removed}/${strays.length} throwaway workspace(s).`);
+        }
+      }
     } finally {
       await context.dispose();
     }

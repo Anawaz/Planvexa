@@ -16,8 +16,16 @@ var databases = builder.AddExecutable("db-bootstrap", "pwsh", "../..", "-NoProfi
 
 // Fresh clones have no node_modules and `npm run dev` would fail. ponytail: presence check only, like
 // dev-up.ps1 -- delete apps/web/node_modules after a dependency bump to force a reinstall.
+//
+// It also drops a poisoned .next first. `next dev` (Turbopack) and `next build` share apps/web/.next
+// because next.config.ts sets no distDir, so running a production build while a dev server is up
+// leaves mixed artifacts, and the next dev server reuses them -- serving stale modules whose exports
+// no longer match source ("<symbol> is not a function", with a __TURBOPACK__imported__module__ prefix).
+// BUILD_ID is the precise marker: `next dev` never writes it, `next build` always does. Keying on it
+// rather than clearing unconditionally keeps the warm cache (and fast startup) on every normal launch.
+// Only healed at startup -- a `next build` run mid-session still poisons that session until restart.
 var webInstall = builder.AddExecutable("web-install", "pwsh", "../web", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-    "$ErrorActionPreference='Stop'; if (Test-Path node_modules) { Write-Host 'node_modules present; skipping npm install'; exit 0 }; if (Test-Path package-lock.json) { npm ci } else { npm install }; exit $LASTEXITCODE");
+    "$ErrorActionPreference='Stop'; if (Test-Path .next/BUILD_ID) { Write-Host 'Removing .next: it holds production build output, which poisons the dev module graph'; Remove-Item -Recurse -Force .next }; if (Test-Path node_modules) { Write-Host 'node_modules present; skipping npm install'; exit 0 }; if (Test-Path package-lock.json) { npm ci } else { npm install }; exit $LASTEXITCODE");
 
 var mailpit = builder.AddContainer("mailpit", "axllent/mailpit", "latest")
     .WithEndpoint(port: 1025, targetPort: 1025, name: "smtp")

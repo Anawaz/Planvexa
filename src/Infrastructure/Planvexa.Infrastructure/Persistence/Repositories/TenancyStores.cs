@@ -48,6 +48,17 @@ internal sealed class WorkspaceStore(PlanvexaDbContext db) : IWorkspaceStore
 
     public Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken = default)
         => db.Workspaces.AnyAsync(w => w.Slug == slug, cancellationToken);
+
+    public Task DeleteCascadeAsync(Guid workspaceId, CancellationToken cancellationToken = default)
+        // Same stamped-connection guard as FindByIdAsync: tenancy.workspaces' workspace_isolation
+        // policy (0029) is what authorizes this DELETE, and a workspace's workspace_id is its own id.
+        => TenancySessionGuard.WithStampedWorkspaceAsync<int>(db, workspaceId, async () =>
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM platform.outbox_messages WHERE workspace_id = {workspaceId}", cancellationToken);
+            return await db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM tenancy.workspaces WHERE id = {workspaceId}", cancellationToken);
+        }, cancellationToken);
 }
 
 internal sealed class MembershipStore(PlanvexaDbContext db) : IMembershipStore

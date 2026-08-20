@@ -100,6 +100,34 @@ public sealed class S3FileStorage : IFileStorage
         await _client.DeleteObjectAsync(_bucket, path, cancellationToken);
     }
 
+    public async Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    {
+        // S3 has no "delete a folder": list the prefix and delete the keys. DeleteObjects caps at 1000
+        // keys per request, which is exactly one ListObjectsV2 page, so one page = one delete request.
+        string? continuationToken = null;
+        do
+        {
+            var page = await _client.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = _bucket,
+                Prefix = prefix,
+                ContinuationToken = continuationToken,
+            }, cancellationToken);
+
+            if (page.S3Objects is { Count: > 0 })
+            {
+                await _client.DeleteObjectsAsync(new DeleteObjectsRequest
+                {
+                    BucketName = _bucket,
+                    Objects = page.S3Objects.Select(o => new KeyVersion { Key = o.Key }).ToList(),
+                }, cancellationToken);
+            }
+
+            continuationToken = page.IsTruncated == true ? page.NextContinuationToken : null;
+        }
+        while (continuationToken is not null);
+    }
+
     public Task<string> GetSignedDownloadUrlAsync(string path, TimeSpan expiry, CancellationToken cancellationToken = default)
         => Task.FromResult(_client.GetPreSignedURL(new GetPreSignedUrlRequest
         {

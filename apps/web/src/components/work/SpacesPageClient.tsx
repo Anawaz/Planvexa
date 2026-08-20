@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -466,6 +467,7 @@ function FolderNode({
 }
 
 function SpaceCard({ space, run, pending }: { space: Space; run: Run; pending: boolean }) {
+  const router = useRouter();
   const [composer, setComposer] = useState<"rename" | "folder" | "list" | null>(null);
   const [sharing, setSharing] = useState(false);
   const [showFolderTemplates, setShowFolderTemplates] = useState(false);
@@ -535,6 +537,7 @@ function SpaceCard({ space, run, pending }: { space: Space; run: Run; pending: b
           >
             Save as template
           </MenuItem>
+          <MenuItem onSelect={() => router.push(`/app/spaces/${space.id}/statuses`)}>Statuses &amp; workflow</MenuItem>
           <MenuItem onSelect={() => setSharing(true)}>Share…</MenuItem>
           <MenuItem onSelect={() => run(() => setResourcePrivate("space", space.id, !space.isPrivate))}>
             {space.isPrivate ? "Make public" : "Make private"}

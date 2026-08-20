@@ -299,6 +299,18 @@ public static class ApiEndpoints
             })
             .AddEndpointFilter<ValidationFilter<TransferOwnershipRequest>>()
             .WithName("TransferWorkspaceOwnership");
+
+        // POST, not DELETE: irreversible and needs a confirmation body, matching /leave and
+        // /transfer-ownership above. Owner-only; the service also requires the retyped slug to match.
+        group.MapPost("/{workspaceId:guid}/delete", async (
+                Guid workspaceId, DeleteWorkspaceRequest request,
+                WorkspaceDeletionService service, CancellationToken ct) =>
+            {
+                await service.DeleteAsync(workspaceId, request.ConfirmSlug, ct);
+                return Results.NoContent();
+            })
+            .AddEndpointFilter<ValidationFilter<DeleteWorkspaceRequest>>()
+            .WithName("DeleteWorkspace");
     }
 
     private static void MapInvitations(RouteGroupBuilder api)

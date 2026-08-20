@@ -1,4 +1,4 @@
-namespace Planvexa.UnitTests.Clips;
+﻿namespace Planvexa.UnitTests.Clips;
 
 using Planvexa.BuildingBlocks.Abstractions;
 using Planvexa.BuildingBlocks.Exceptions;
@@ -129,6 +129,8 @@ public sealed class ClipPrivacyInheritanceTests
         public Task<Stream> OpenReadAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult<Stream>(new MemoryStream());
 
         public Task DeleteAsync(string path, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task<string> GetSignedDownloadUrlAsync(string path, TimeSpan expiry, CancellationToken cancellationToken = default) => Task.FromResult("https://example.test/download");
 

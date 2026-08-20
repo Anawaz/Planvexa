@@ -228,6 +228,12 @@ npm run build     # production build
 npm run dev       # dev server (http://localhost:3000)
 ```
 
+> **Building while the dev server is running?** Set `NEXT_DIST_DIR=.next-verify` first. `next dev`
+> and `next build` both write `.next` by default, and running them together tears the files in it —
+> leaving the dev server serving stale modules whose exports no longer match source (`<symbol> is not
+> a function`). The AppHost repairs an obviously-poisoned `.next` on startup, but only the separate
+> build directory prevents the collision. Deployment builds are unaffected and still use `.next`.
+
 > If you run the dev server by hand (outside the AppHost), set
 > `NODE_OPTIONS=--max-http-header-size=65536` first. Browsers share `localhost` cookies across all
 > ports, so other dev tools' cookies plus the chunked session can exceed Node's default 16 KB header
@@ -313,6 +319,25 @@ Every workspace-owned row carries a non-nullable `WorkspaceId` (UUIDv7). Composi
 foreign keys keep child rows within their workspace, PostgreSQL Row-Level Security provides a second
 isolation boundary, and the resolved, immutable workspace context (never taken from a request body)
 scopes every query, cache key, search index and file path.
+
+Every table carrying a `workspace_id` also has a foreign key to `tenancy.workspaces` with
+`ON DELETE CASCADE`, so deleting a workspace (`/app/settings/workspace`, Owner-only and irreversible)
+is a single `DELETE` that removes everything it owns. `audit.audit_events` and
+`platform.outbox_messages` are excluded on purpose so the audit trail outlives the workspace it
+describes. **A new workspace-owned table must declare that foreign key**, or its rows will be left
+behind.
+
+## Statuses and workflows
+
+Status schemes are **workspace defaults with optional per-Space overrides**. A Space inherits the
+workspace default until it customizes at `/app/spaces/{id}/statuses`; after that its changes affect
+only that Space. Workspace defaults live at `/app/settings/statuses` (create, rename, recolour,
+reorder and remove statuses, or start from a Kanban/Scrum/Bug-tracking template);
+`/app/settings/workflows` remains the separate screen for allowed-transition restrictions.
+
+Because `tasks.status_id` has no foreign key to `statuses`, removing a status always requires naming
+a replacement, and the affected tasks are moved to it. See section 11 of
+`docs/Planvexa-Product-Specification.md` for the full resolution rules.
 
 ## Production deployment
 

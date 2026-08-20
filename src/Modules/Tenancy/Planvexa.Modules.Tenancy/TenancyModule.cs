@@ -16,6 +16,7 @@ public static class TenancyModule
     {
         services.AddScoped<WorkspaceRegistrationService>();
         services.AddScoped<WorkspaceService>();
+        services.AddScoped<WorkspaceDeletionService>();
         services.AddScoped<MembershipService>();
         services.AddScoped<InvitationService>();
         services.AddScoped<Planvexa.SharedContracts.Tenancy.IInvitationDirectoryQuery>(sp => sp.GetRequiredService<InvitationService>());

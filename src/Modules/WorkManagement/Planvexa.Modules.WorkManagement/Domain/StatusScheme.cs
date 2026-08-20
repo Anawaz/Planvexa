@@ -25,6 +25,10 @@ public sealed class StatusScheme : Entity, IAggregateRoot, IWorkspaceOwned
     public string Name { get; private set; } = string.Empty;
     public bool IsDefault { get; private set; }
 
+    /// <summary>Null = a workspace-level scheme; set = that Space's private override (see
+    /// <see cref="Space.StatusSchemeId"/>). Only workspace-level schemes can be the workspace default.</summary>
+    public Guid? SpaceId { get; private set; }
+
     public IReadOnlyList<StatusDefinition> Statuses => _statuses.AsReadOnly();
 
     public static StatusScheme Create(Guid id, Guid workspaceId, string name, bool isDefault)
@@ -33,6 +37,115 @@ public sealed class StatusScheme : Entity, IAggregateRoot, IWorkspaceOwned
         Guard.AgainstNullOrWhiteSpace(name, nameof(name));
         return new StatusScheme(id, workspaceId, name.Trim(), isDefault);
     }
+
+    /// <summary>A scheme owned by one Space, overriding the workspace default for that Space only.</summary>
+    public static StatusScheme CreateForSpace(Guid id, Guid workspaceId, Guid spaceId, string name)
+    {
+        Guard.AgainstEmpty(spaceId, nameof(spaceId));
+        var scheme = Create(id, workspaceId, name, isDefault: false);
+        scheme.SpaceId = spaceId;
+        return scheme;
+    }
+
+    public void Rename(string name)
+    {
+        Guard.AgainstNullOrWhiteSpace(name, nameof(name));
+        Name = name.Trim();
+    }
+
+    /// <summary>Updates one status in place; a null argument means "leave unchanged".</summary>
+    public void UpdateStatus(Guid statusId, string? name, StatusCategory? category, string? color)
+    {
+        var status = RequireStatus(statusId);
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            status.Name = name.Trim();
+        }
+
+        if (category is { } newCategory)
+        {
+            status.Category = newCategory;
+        }
+
+        if (!string.IsNullOrWhiteSpace(color))
+        {
+            status.Color = color.Trim();
+        }
+    }
+
+    /// <summary>
+    /// Removes a status. Callers must have already moved any task sitting on it (see
+    /// StatusSchemeService.RemoveStatusAsync) — this method only maintains scheme integrity, which
+    /// includes scrubbing the removed id out of every OTHER status's allowed-transition list so
+    /// <see cref="CanTransition"/> cannot silently mis-evaluate against a dangling id.
+    /// </summary>
+    public void RemoveStatus(Guid statusId)
+    {
+        var status = RequireStatus(statusId);
+        if (_statuses.Count == 1)
+        {
+            throw new ValidationAppException("A workflow must keep at least one status.");
+        }
+
+        _statuses.Remove(status);
+
+        foreach (var other in _statuses)
+        {
+            var allowed = other.AllowedNextStatusIds;
+            if (allowed.Contains(statusId))
+            {
+                other.SetAllowedNextStatusIds(allowed.Where(id => id != statusId).ToList());
+            }
+        }
+    }
+
+    /// <summary>Reorders a status to <paramref name="newIndex"/> in the current (position-ordered) sequence.</summary>
+    public void MoveStatus(Guid statusId, int newIndex)
+    {
+        var status = RequireStatus(statusId);
+        var others = _statuses.OrderBy(s => s.Position).Where(s => s.Id != statusId).ToList();
+        var index = Math.Clamp(newIndex, 0, others.Count);
+
+        status.Position = Positioning.Between(
+            index == 0 ? null : others[index - 1].Position,
+            index == others.Count ? null : others[index].Position);
+    }
+
+    /// <summary>
+    /// Copies this scheme (names, categories, colours, positions) for <paramref name="spaceId"/>, returning
+    /// the clone plus the old→new status id map. Allowed-transition lists are remapped through that map, so
+    /// "customize this Space" is a lossless copy by construction and the caller can move tasks across with it.
+    /// </summary>
+    public (StatusScheme Clone, IReadOnlyDictionary<Guid, Guid> OldToNewStatusIds) CloneFor(
+        Guid newSchemeId, Guid? spaceId, Func<Guid> newId)
+    {
+        var clone = spaceId is { } id
+            ? CreateForSpace(newSchemeId, WorkspaceId, id, Name)
+            : Create(newSchemeId, WorkspaceId, Name, isDefault: false);
+
+        var map = new Dictionary<Guid, Guid>(_statuses.Count);
+        foreach (var source in _statuses.OrderBy(s => s.Position))
+        {
+            var copy = clone.AddStatus(newId(), source.Name, source.Category, source.Color, source.Position);
+            map[source.Id] = copy.Id;
+        }
+
+        foreach (var source in _statuses)
+        {
+            var allowed = source.AllowedNextStatusIds;
+            if (allowed.Count > 0)
+            {
+                clone.RequireStatus(map[source.Id]).SetAllowedNextStatusIds(allowed.Select(x => map[x]).ToList());
+            }
+        }
+
+        return (clone, map);
+    }
+
+    private StatusDefinition RequireStatus(Guid statusId)
+        => _statuses.FirstOrDefault(s => s.Id == statusId)
+           ?? throw new ValidationAppException("The status does not belong to this scheme.");
 
     public StatusDefinition AddStatus(Guid id, string name, StatusCategory category, string color, double position)
     {
@@ -118,11 +231,12 @@ public sealed class StatusDefinition : Entity, IWorkspaceOwned
         Position = position;
     }
 
+    // Settable only from within the aggregate (same encapsulation style as SetAllowedNextStatusIds below).
     public Guid SchemeId { get; private set; }
-    public string Name { get; private set; } = string.Empty;
-    public StatusCategory Category { get; private set; }
-    public string Color { get; private set; } = "#8b8b8b";
-    public double Position { get; private set; }
+    public string Name { get; internal set; } = string.Empty;
+    public StatusCategory Category { get; internal set; }
+    public string Color { get; internal set; } = "#8b8b8b";
+    public double Position { get; internal set; }
 
     /// <summary>Backing storage for <see cref="AllowedNextStatusIds"/> — null/empty means unrestricted.
     /// Only <see cref="StatusScheme.SetAllowedTransitions"/> may set this, so it can validate target ids

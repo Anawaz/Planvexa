@@ -33,7 +33,7 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { theme, setTheme } = useTheme();
   const { user, currentUser } = useAppContext();
-  const displayName = user?.name || user?.email || "Account";
+  const displayName = currentUser?.displayName || user?.name || user?.email || "Account";
   const queryClient = useQueryClient();
 
   // Persists to the account (PATCH /users/me — same endpoint the profile page uses), so the

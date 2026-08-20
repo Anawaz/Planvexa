@@ -44,7 +44,11 @@ test("a task survives create, rename, status change and completion across a relo
 
   await page.reload();
 
+  // Wait for the row itself before asserting on its controls. Going straight to `completedBox`
+  // races the post-reload refetch: the checkbox genuinely does not exist yet, so the assertion
+  // burns its retry budget on an empty list and fails with "element(s) not found".
   const reloaded = page.locator("article").filter({ hasText: renamed });
+  await expect(reloaded).toBeVisible();
   await expect(completedBox).toBeChecked();
   await expect(reloaded.getByText("Complete", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: title, exact: true })).toHaveCount(0);
