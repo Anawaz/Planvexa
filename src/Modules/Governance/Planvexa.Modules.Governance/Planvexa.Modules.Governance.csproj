@@ -15,5 +15,12 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- This module's CsvWriter is internal (a pure utility, not part of the module's contract) but its
+         formula-injection escaping is security behaviour that needs a direct test rather than one
+         inferred through a service that also needs a database. -->
+    <InternalsVisibleTo Include="Planvexa.UnitTests" />
+  </ItemGroup>
+
 </Project>
 

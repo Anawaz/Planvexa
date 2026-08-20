@@ -149,7 +149,9 @@ internal static class CsvWriter
                 builder.Append(',');
             }
 
-            var field = fields[i];
+            // Neutralize BEFORE the quoting decision: prefixing a value that starts with CR/tab adds a
+            // character but leaves the control character in place, so needsQuoting still has to see it.
+            var field = Neutralize(fields[i]);
             var needsQuoting = field.Contains(',', StringComparison.Ordinal) || field.Contains('"', StringComparison.Ordinal)
                 || field.Contains('\n', StringComparison.Ordinal) || field.Contains('\r', StringComparison.Ordinal);
             if (needsQuoting)
@@ -162,4 +164,19 @@ internal static class CsvWriter
             }
         }
     }
+
+    /// <summary>
+    /// Defuses spreadsheet formula injection. Excel and Google Sheets EXECUTE a cell whose text begins
+    /// with <c>=</c>, <c>+</c>, <c>-</c>, <c>@</c>, tab or CR, and this module's rows carry
+    /// user-authored dashboard widget names and labels. Worth guarding even though the values look
+    /// benign: this CSV is EMAILED on a schedule, so a poisoned cell reaches recipients' inboxes
+    /// unattended rather than only someone who chose to click export.
+    ///
+    /// The apostrophe prefix is the conventional fix: spreadsheets read it as "treat this as text" and
+    /// do not display it, while a plain CSV parser sees one extra literal character.
+    /// </summary>
+    private static string Neutralize(string value)
+        => value.Length > 0 && value[0] is '=' or '+' or '-' or '@' or '\t' or '\r'
+            ? "'" + value
+            : value;
 }
