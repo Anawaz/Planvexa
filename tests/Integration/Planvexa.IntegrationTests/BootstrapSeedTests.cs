@@ -92,13 +92,94 @@ public sealed class BootstrapSeedTests : IAsyncLifetime
         (await CountAsync("tenancy.workspaces")).ShouldBe(0);
     }
 
+    [Fact]
+    public async Task The_bootstrap_admin_becomes_the_first_host_administrator()
+    {
+        await StartApiAsync();
+
+        (await CountAsync($"identity.users WHERE subject = '{Subject}' AND is_host_admin")).ShouldBe(1);
+        (await CountAsync("identity.users WHERE is_host_admin")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task An_installation_left_with_no_host_administrator_recovers_on_restart()
+    {
+        await StartApiAsync();
+        // Zero host administrators is unreachable through the console — it refuses to demote or disable
+        // the last one — so this state only arises from a direct database edit or a lost account. That
+        // is the lockout case, and a restart healing it is more useful than requiring config surgery.
+        await ExecuteAsync("UPDATE identity.users SET is_host_admin = false;");
+
+        await StartApiAsync();
+
+        (await CountAsync($"identity.users WHERE subject = '{Subject}' AND is_host_admin")).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task An_existing_host_administrator_is_never_added_to_by_a_restart()
+    {
+        await StartApiAsync();
+        await ExecuteAsync($"UPDATE identity.users SET is_host_admin = false WHERE subject = '{Subject}';");
+        // Somebody else now holds it — the normal steady state after the bootstrap account hands over.
+        await ExecuteAsync($"""
+            INSERT INTO identity.users (id, subject, email, display_name, is_active, is_host_admin, created_at_utc, has_custom_display_name, is_anonymized)
+            VALUES (gen_random_uuid(), 'handover-admin', 'handover@planvexa.test', 'Handover', true, true, now(), false, false);
+            """);
+
+        await StartApiAsync();
+        await StartApiAsync();
+
+        // The bootstrap account stays demoted: while ANY host administrator exists, the grant is
+        // self-administered and the bootstrap keeps its hands off.
+        (await CountAsync($"identity.users WHERE subject = '{Subject}' AND is_host_admin")).ShouldBe(0);
+        (await CountAsync("identity.users WHERE is_host_admin")).ShouldBe(1);
+    }
+
+    /// <summary>
+    /// The demo seed writes its users directly in SQL and knows nothing about host administration, and
+    /// it makes the bootstrap return early — so without an explicit grant on that path a seeded
+    /// database (every local development environment) would have a console nobody can open.
+    /// </summary>
+    [Fact]
+    public async Task A_demo_seeded_database_still_gets_a_host_administrator()
+    {
+        await Planvexa.Database.PlanvexaDevelopmentSeeder.SeedAsync(ConnectionString, seedDevelopmentData: true);
+
+        await StartApiAsync(seedDevelopmentData: true, adminEmail: "admin@planvexa.local");
+
+        // The seed's dev-admin holds that email and is promoted in place.
+        (await CountAsync("identity.users WHERE email = 'admin@planvexa.local' AND is_host_admin")).ShouldBe(1);
+        (await CountAsync("identity.users WHERE is_host_admin")).ShouldBe(1);
+
+        // Adopted by email, NOT re-provisioned: its identity-provider subject must still be dev-admin,
+        // or that login breaks.
+        (await CountAsync("identity.users WHERE email = 'admin@planvexa.local' AND subject = 'dev-admin'")).ShouldBe(1);
+
+        // And the bootstrap still did not create its own admin or workspace on top of the seed.
+        (await CountAsync("identity.users")).ShouldBe(4);
+    }
+
+    [Fact]
+    public async Task A_demo_seeded_database_grants_nothing_when_no_account_holds_the_configured_admin_email()
+    {
+        await Planvexa.Database.PlanvexaDevelopmentSeeder.SeedAsync(ConnectionString, seedDevelopmentData: true);
+
+        await StartApiAsync(seedDevelopmentData: true, adminEmail: "nobody@planvexa.test");
+
+        // Better a closed console than silently promoting whichever account happened to be first.
+        (await CountAsync("identity.users WHERE is_host_admin")).ShouldBe(0);
+        (await CountAsync("identity.users")).ShouldBe(4);
+    }
+
     /// <summary>
     /// Boots the API the way a fresh install does — schema already deployed, demo seed off — and
     /// disposes it again, so a second call is a genuine restart against the same database.
     /// </summary>
-    private async Task StartApiAsync(bool bootstrapEnabled = true)
+    private async Task StartApiAsync(
+        bool bootstrapEnabled = true, bool seedDevelopmentData = false, string adminEmail = Email)
     {
-        await using var factory = new BootstrapApiFactory(ConnectionString, bootstrapEnabled);
+        await using var factory = new BootstrapApiFactory(
+            ConnectionString, bootstrapEnabled, seedDevelopmentData, adminEmail);
         using var client = factory.CreateClient();
         _ = await client.GetAsync(new Uri("/health/live", UriKind.Relative));
     }
@@ -112,7 +193,17 @@ public sealed class BootstrapSeedTests : IAsyncLifetime
         return Convert.ToInt32(await command.ExecuteScalarAsync());
     }
 
-    private sealed class BootstrapApiFactory(string connectionString, bool bootstrapEnabled)
+    private async Task ExecuteAsync(string sql)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private sealed class BootstrapApiFactory(
+        string connectionString, bool bootstrapEnabled, bool seedDevelopmentData, string adminEmail)
         : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -121,10 +212,10 @@ public sealed class BootstrapSeedTests : IAsyncLifetime
             builder.UseSetting("ConnectionStrings:Planvexa", connectionString);
             builder.UseSetting("ConnectionStrings:PlanvexaMaintenance", connectionString);
             builder.UseSetting("Database:RunDbUpOnStartup", "false");
-            builder.UseSetting("Database:SeedDevelopmentData", "false");
+            builder.UseSetting("Database:SeedDevelopmentData", seedDevelopmentData ? "true" : "false");
             builder.UseSetting("Bootstrap:Enabled", bootstrapEnabled ? "true" : "false");
             builder.UseSetting("Bootstrap:AdminSubject", Subject);
-            builder.UseSetting("Bootstrap:AdminEmail", Email);
+            builder.UseSetting("Bootstrap:AdminEmail", adminEmail);
             builder.UseSetting("Bootstrap:WorkspaceName", WorkspaceName);
             builder.UseSetting("OpenTelemetry:OtlpEndpoint", string.Empty);
             builder.UseSetting("Authentication:UseDevelopmentHeaders", "true");

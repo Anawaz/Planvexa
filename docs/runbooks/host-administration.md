@@ -40,11 +40,23 @@ role. There are three ways it gets set:
    **if the installation has no active host administrator yet**. This runs on every start, so an
    existing installation upgrading into this feature gets its first host administrator on the next
    restart without any manual step.
+
+   On a **demo-seeded** database (`Database:SeedDevelopmentData=true` — which the local AppHost sets)
+   the bootstrap otherwise stands down entirely, because the seed already provisioned users and
+   workspaces. Host administration is the exception: the account holding `Bootstrap:AdminEmail` is
+   promoted in place, matched by **email only** so its identity-provider subject is not re-keyed. With
+   the stock local setup that is `admin@planvexa.local`, i.e. the seed's `dev-admin`.
 2. **From the console.** An existing host administrator promotes another account on its detail page.
 3. **Break-glass configuration.** See below.
 
-Once at least one host administrator exists, the bootstrap never grants again — so demoting the
-bootstrap account is permanent, not undone by the next restart.
+While at least one host administrator exists, the bootstrap keeps its hands off — so handing over to
+another account and demoting the bootstrap one sticks across restarts.
+
+If the installation ever reaches **zero** host administrators, the next restart re-grants to
+`Bootstrap:AdminSubject`. That is deliberate: the console refuses to demote or disable the last one, so
+zero can only come from a direct database edit or a lost identity-provider account — the lockout case,
+where self-healing beats config surgery. To genuinely run without a host console, set
+`Bootstrap:Enabled=false`.
 
 Two guards prevent an installation from locking itself out entirely. Neither can be overridden from
 the console:

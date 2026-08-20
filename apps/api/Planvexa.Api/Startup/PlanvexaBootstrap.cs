@@ -36,16 +36,6 @@ public static class PlanvexaBootstrap
             return;
         }
 
-        // The demo seed and this bootstrap are alternatives, not additions: the seed already leaves a
-        // usable install behind, and its dev-admin account holds the same default email this would
-        // claim (which GetOrProvisionAsync would then adopt, re-keying dev-admin's subject and breaking
-        // that login). Whichever ran first owns the database.
-        if (seededDevelopmentData)
-        {
-            app.Logger.LogInformation("First-run bootstrap skipped: the development seed already provisioned users and workspaces.");
-            return;
-        }
-
         var subject = config.GetValue("AdminSubject", "planvexa-admin")!;
         var email = config.GetValue("AdminEmail", "admin@planvexa.local")!;
         var displayName = config.GetValue("AdminDisplayName", "Planvexa Admin")!;
@@ -58,6 +48,23 @@ public static class PlanvexaBootstrap
 
         using var scope = app.Services.CreateScope();
         var services = scope.ServiceProvider;
+
+        // The demo seed and this bootstrap are alternatives, not additions: the seed already leaves a
+        // usable install behind, and its dev-admin account holds the same default email this would
+        // claim (which GetOrProvisionAsync would then adopt, re-keying dev-admin's subject and breaking
+        // that login). Whichever ran first owns the database.
+        //
+        // Host administration is the one thing that still has to happen either way. The demo seed
+        // predates it and writes no is_host_admin flag, so returning here unconditionally would leave a
+        // seeded database — every local development environment — with a /host console literally nobody
+        // can open. Adopted by EMAIL only, never GetOrProvisionAsync, precisely to avoid the re-keying
+        // the paragraph above warns about.
+        if (seededDevelopmentData)
+        {
+            app.Logger.LogInformation("First-run bootstrap skipped: the development seed already provisioned users and workspaces.");
+            await EnsureHostAdminForSeededDatabaseAsync(app, services, email, cancellationToken);
+            return;
+        }
 
         // Idempotent by construction: adopts an existing user with the same subject or IdP-verified
         // email. identity.users is a global table with no RLS policies, so this runs with no ambient
@@ -109,10 +116,57 @@ public static class PlanvexaBootstrap
     /// a workspace already, and gating the grant behind that return would mean an existing install
     /// could never produce its first host admin.
     ///
-    /// Only ever grants when the installation has NO active host admin at all. Once one exists, host
-    /// administration is self-administered through the console — so demoting the bootstrap account is
-    /// permanent rather than being silently undone by the next restart.
+    /// Only ever grants when the installation has NO active host admin at all. While any exists, host
+    /// administration is self-administered through the console and this keeps its hands off — handing
+    /// over to another account and demoting the bootstrap one sticks across restarts.
+    ///
+    /// Reaching zero, though, IS re-granted on the next start, deliberately: the console refuses to
+    /// demote or disable the last host administrator, so zero can only come from a direct database edit
+    /// or a lost identity-provider account — the lockout case. Self-healing there is more useful than
+    /// making the operator reach for the <c>HostAdmin:Subjects</c> break-glass, and it is not an
+    /// escalation: the account it grants to is whatever <c>Bootstrap:AdminSubject</c> already names,
+    /// which only someone with server access can change. An operator who genuinely wants no console on
+    /// this installation sets <c>Bootstrap:Enabled=false</c>, which is honoured above.
     /// </summary>
+    /// <summary>
+    /// The demo-seed counterpart of <see cref="EnsureHostAdminAsync"/>. The seed writes its own users
+    /// and workspaces directly in SQL and knows nothing about host administration, so without this a
+    /// seeded database — which is every local development environment, since the AppHost sets
+    /// <c>Database:SeedDevelopmentData=true</c> — would have no host administrator and an unreachable
+    /// console.
+    ///
+    /// Resolves by email rather than provisioning: the account holding <c>Bootstrap:AdminEmail</c> is
+    /// the seed's own <c>dev-admin</c>, and calling <c>GetOrProvisionAsync</c> here would re-key its
+    /// identity-provider subject to <c>Bootstrap:AdminSubject</c> and break that login — the exact
+    /// failure the early return above exists to prevent. If no account holds that email (an operator
+    /// pointed <c>Bootstrap:AdminEmail</c> somewhere else), nothing is granted and the console stays
+    /// closed until someone is promoted deliberately.
+    /// </summary>
+    private static async Task EnsureHostAdminForSeededDatabaseAsync(
+        WebApplication app, IServiceProvider services, string email, CancellationToken cancellationToken)
+    {
+        var store = services.GetRequiredService<IUserStore>();
+        if (await store.CountHostAdminsAsync(cancellationToken) > 0)
+        {
+            return;
+        }
+
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        if (await store.FindByEmailAsync(normalizedEmail, cancellationToken) is not { } admin)
+        {
+            app.Logger.LogWarning(
+                "No host administrator exists and no seeded account holds {Email}. Promote one with "
+                + "HostAdmin:Subjects, or set Bootstrap:AdminEmail to a seeded account.", normalizedEmail);
+            return;
+        }
+
+        admin.GrantHostAdmin(services.GetRequiredService<IClock>().UtcNow);
+        await services.GetRequiredService<IUnitOfWork>().SaveChangesAsync(cancellationToken);
+
+        app.Logger.LogInformation(
+            "Granted host administration to the seeded account {Email} — this installation had none.", normalizedEmail);
+    }
+
     private static async Task EnsureHostAdminAsync(
         WebApplication app, IServiceProvider services, Guid userId, string subject, CancellationToken cancellationToken)
     {
