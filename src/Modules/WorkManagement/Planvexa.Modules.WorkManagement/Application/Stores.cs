@@ -23,15 +23,25 @@ public interface ITaskListStore
     void Add(TaskList list);
     Task<TaskList?> FindAsync(Guid id, CancellationToken ct = default);
     Task<IReadOnlyList<TaskList>> ListBySpaceAsync(Guid spaceId, CancellationToken ct = default);
+    Task<IReadOnlyList<TaskList>> ListBySchemeAsync(Guid schemeId, CancellationToken ct = default);
     Task<double?> MaxPositionAsync(Guid spaceId, CancellationToken ct = default);
 }
 
 public interface IStatusSchemeStore
 {
     void Add(StatusScheme scheme);
+    void Remove(StatusScheme scheme);
     Task<StatusScheme?> FindAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>The workspace default. Workspace-level only (SpaceId == null), so a Space override can
+    /// never be picked up as the workspace's default scheme.</summary>
     Task<StatusScheme?> FindDefaultAsync(Guid workspaceId, CancellationToken ct = default);
-    Task<IReadOnlyList<StatusScheme>> ListByWorkspaceAsync(Guid workspaceId, CancellationToken ct = default);
+
+    /// <summary><paramref name="workspaceLevelOnly"/> excludes per-Space overrides (the settings page
+    /// lists workspace-level schemes only).</summary>
+    Task<IReadOnlyList<StatusScheme>> ListByWorkspaceAsync(Guid workspaceId, bool workspaceLevelOnly = false, CancellationToken ct = default);
+
+    Task<IReadOnlyList<StatusScheme>> ListForSpaceAsync(Guid spaceId, CancellationToken ct = default);
     Task<StatusDefinition?> FindStatusAsync(Guid statusId, CancellationToken ct = default);
 }
 
@@ -54,6 +64,11 @@ public interface IWorkItemStore
     /// not), ordered by that membership's own position — NOT filtered by WorkItem.ListId, so a task
     /// added to a second list shows up here too.</summary>
     Task<IReadOnlyList<WorkItem>> ListByListAsync(Guid listId, CancellationToken ct = default);
+
+    /// <summary>Tasks currently sitting on a status — the population a status removal has to move first.</summary>
+    Task<IReadOnlyList<WorkItem>> ListByStatusAsync(Guid statusId, CancellationToken ct = default);
+
+    Task<int> CountByStatusAsync(Guid statusId, CancellationToken ct = default);
 
     /// <summary>My Work "Assigned to me" section. When <paramref name="workspaceId"/> is given, the
     /// result is scoped to that Workspace only; otherwise it spans every Workspace the user belongs to.</summary>

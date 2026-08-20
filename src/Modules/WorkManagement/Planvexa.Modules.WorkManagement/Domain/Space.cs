@@ -26,6 +26,9 @@ public sealed class Space : WorkEntity, IAggregateRoot
     /// <summary>The SavedView shown by default when a user opens this space (null = fall back to the first view).</summary>
     public Guid? DefaultViewId { get; private set; }
 
+    /// <summary>This Space's status-scheme override (null = inherit the workspace default scheme).</summary>
+    public Guid? StatusSchemeId { get; private set; }
+
     public static Space Create(
         Guid id, Guid workspaceId, string name, double position, Guid createdBy, DateTimeOffset nowUtc)
     {
@@ -64,6 +67,13 @@ public sealed class Space : WorkEntity, IAggregateRoot
     public void SetDefaultView(Guid? viewId, Guid userId, DateTimeOffset nowUtc)
     {
         DefaultViewId = viewId;
+        Touch(userId, nowUtc);
+    }
+
+    /// <summary>Points this Space at its own status scheme, or back at the workspace default (null).</summary>
+    public void SetStatusScheme(Guid? schemeId, Guid userId, DateTimeOffset nowUtc)
+    {
+        StatusSchemeId = schemeId;
         Touch(userId, nowUtc);
     }
 }

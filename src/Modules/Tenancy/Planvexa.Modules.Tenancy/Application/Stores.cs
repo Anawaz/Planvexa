@@ -7,6 +7,13 @@ public interface IWorkspaceStore
     void Add(Workspace workspace);
     Task<Workspace?> FindByIdAsync(Guid workspaceId, CancellationToken cancellationToken = default);
     Task<bool> SlugExistsAsync(string slug, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes the workspace row; PostgreSQL cascades every workspace-owned table from it
+    /// (script 0092). Outbox messages are cleared first — they are deliberately outside that cascade,
+    /// and publishing events for a workspace that no longer exists is worse than losing them.
+    /// </summary>
+    Task DeleteCascadeAsync(Guid workspaceId, CancellationToken cancellationToken = default);
 }
 
 public interface IMembershipStore

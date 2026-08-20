@@ -19,7 +19,7 @@ internal static class WorkMapper
     public static StatusDto ToDto(StatusDefinition s) => new(s.Id, s.Name, s.Category.ToString(), s.Color, s.Position, s.AllowedNextStatusIds);
 
     public static StatusSchemeDto ToDto(StatusScheme s)
-        => new(s.Id, s.Name, s.IsDefault, s.Statuses.OrderBy(x => x.Position).Select(ToDto).ToList());
+        => new(s.Id, s.Name, s.IsDefault, s.Statuses.OrderBy(x => x.Position).Select(ToDto).ToList(), s.SpaceId);
 
     public static TagDto ToDto(Tag t) => new(t.Id, t.Name, t.Color);
 

@@ -47,6 +47,9 @@ internal sealed class TaskListStore(PlanvexaDbContext db) : ITaskListStore
         => await db.Set<TaskList>().Where(x => x.SpaceId == spaceId)
             .OrderBy(x => x.Position).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<TaskList>> ListBySchemeAsync(Guid schemeId, CancellationToken ct = default)
+        => await db.Set<TaskList>().Where(x => x.StatusSchemeId == schemeId).ToListAsync(ct);
+
     public async Task<double?> MaxPositionAsync(Guid spaceId, CancellationToken ct = default)
         => await db.Set<TaskList>().Where(x => x.SpaceId == spaceId)
             .Select(x => (double?)x.Position).MaxAsync(ct);
@@ -56,16 +59,25 @@ internal sealed class StatusSchemeStore(PlanvexaDbContext db) : IStatusSchemeSto
 {
     public void Add(StatusScheme scheme) => db.Set<StatusScheme>().Add(scheme);
 
+    public void Remove(StatusScheme scheme) => db.Set<StatusScheme>().Remove(scheme);
+
     public Task<StatusScheme?> FindAsync(Guid id, CancellationToken ct = default)
         => db.Set<StatusScheme>().Include(s => s.Statuses).FirstOrDefaultAsync(x => x.Id == id, ct);
 
+    // SpaceId == null: the workspace default is by definition a workspace-level scheme, so a Space
+    // override (even a cloned one carrying the same statuses) can never be returned here.
     public Task<StatusScheme?> FindDefaultAsync(Guid workspaceId, CancellationToken ct = default)
         => db.Set<StatusScheme>().Include(s => s.Statuses)
-            .FirstOrDefaultAsync(x => x.WorkspaceId == workspaceId && x.IsDefault, ct);
+            .FirstOrDefaultAsync(x => x.WorkspaceId == workspaceId && x.SpaceId == null && x.IsDefault, ct);
 
-    public async Task<IReadOnlyList<StatusScheme>> ListByWorkspaceAsync(Guid workspaceId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<StatusScheme>> ListByWorkspaceAsync(
+        Guid workspaceId, bool workspaceLevelOnly = false, CancellationToken ct = default)
         => await db.Set<StatusScheme>().Include(s => s.Statuses)
-            .Where(x => x.WorkspaceId == workspaceId).ToListAsync(ct);
+            .Where(x => x.WorkspaceId == workspaceId && (!workspaceLevelOnly || x.SpaceId == null)).ToListAsync(ct);
+
+    public async Task<IReadOnlyList<StatusScheme>> ListForSpaceAsync(Guid spaceId, CancellationToken ct = default)
+        => await db.Set<StatusScheme>().Include(s => s.Statuses)
+            .Where(x => x.SpaceId == spaceId).ToListAsync(ct);
 
     public Task<StatusDefinition?> FindStatusAsync(Guid statusId, CancellationToken ct = default)
         => db.Set<StatusDefinition>().FirstOrDefaultAsync(x => x.Id == statusId, ct);

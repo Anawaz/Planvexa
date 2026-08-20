@@ -15,6 +15,70 @@ public sealed record MoveListRequest(Guid SpaceId, Guid? FolderId);
 public sealed record CreateStatusSchemeRequest(string Name, IReadOnlyList<StatusInput> Statuses);
 public sealed record StatusInput(string Name, string Category, string? Color);
 public sealed record SetStatusTransitionsRequest(IReadOnlyList<Guid> ToStatusIds);
+public sealed record RenameStatusSchemeRequest(string Name);
+public sealed record AddStatusRequest(string Name, string Category, string? Color);
+public sealed record UpdateStatusRequest(string? Name, string? Category, string? Color, int? Index);
+public sealed record RemoveStatusRequest(Guid MoveTasksToStatusId);
+public sealed record StatusMappingRequest(Guid FromStatusId, Guid ToStatusId);
+public sealed record CustomizeSpaceStatusSchemeRequest(IReadOnlyList<StatusInput>? PresetStatuses);
+public sealed record ResetSpaceStatusSchemeRequest(IReadOnlyList<StatusMappingRequest>? Mapping);
+
+/// <summary>Shared StatusCategory parsing, so an unknown category is a 400 from the validator rather than
+/// a parse exception escaping the handler.</summary>
+internal static class StatusCategories
+{
+    public const string Message = "Category must be one of: NotStarted, Active, Done, Closed.";
+
+    public static bool IsValid(string? value) => Enum.TryParse<StatusCategory>(value, ignoreCase: true, out _);
+
+    public static StatusCategory Parse(string value) => Enum.Parse<StatusCategory>(value, ignoreCase: true);
+}
+
+public sealed class RenameStatusSchemeRequestValidator : AbstractValidator<RenameStatusSchemeRequest>
+{
+    public RenameStatusSchemeRequestValidator() => RuleFor(x => x.Name).NotEmpty().MaximumLength(128);
+}
+
+public sealed class AddStatusRequestValidator : AbstractValidator<AddStatusRequest>
+{
+    public AddStatusRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(128);
+        RuleFor(x => x.Category).Must(StatusCategories.IsValid).WithMessage(StatusCategories.Message);
+        RuleFor(x => x.Color).MaximumLength(32);
+    }
+}
+
+public sealed class UpdateStatusRequestValidator : AbstractValidator<UpdateStatusRequest>
+{
+    public UpdateStatusRequestValidator()
+    {
+        RuleFor(x => x.Name).MaximumLength(128);
+        RuleFor(x => x.Category).Must(StatusCategories.IsValid).When(x => x.Category is not null)
+            .WithMessage(StatusCategories.Message);
+        RuleFor(x => x.Color).MaximumLength(32);
+        RuleFor(x => x.Index).GreaterThanOrEqualTo(0).When(x => x.Index is not null);
+    }
+}
+
+public sealed class RemoveStatusRequestValidator : AbstractValidator<RemoveStatusRequest>
+{
+    public RemoveStatusRequestValidator() => RuleFor(x => x.MoveTasksToStatusId).NotEmpty()
+        .WithMessage("A replacement status is required so the removed status's tasks are not stranded.");
+}
+
+public sealed class CustomizeSpaceStatusSchemeRequestValidator : AbstractValidator<CustomizeSpaceStatusSchemeRequest>
+{
+    public CustomizeSpaceStatusSchemeRequestValidator()
+    {
+        RuleForEach(x => x.PresetStatuses).ChildRules(s =>
+        {
+            s.RuleFor(x => x.Name).NotEmpty().MaximumLength(128);
+            s.RuleFor(x => x.Category).Must(StatusCategories.IsValid).WithMessage(StatusCategories.Message);
+            s.RuleFor(x => x.Color).MaximumLength(32);
+        });
+    }
+}
 
 public sealed record CreateTaskRequest(
     Guid ListId, string Title, string? Description, Guid? ParentId, string? Priority,

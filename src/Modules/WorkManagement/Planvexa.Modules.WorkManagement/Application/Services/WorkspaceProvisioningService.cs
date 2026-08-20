@@ -18,4 +18,9 @@ public sealed class WorkspaceProvisioningService(WorkServiceContext ctx, IStatus
         schemes.Add(scheme);
         return scheme;
     }
+
+    /// <summary>The scheme a Space resolves to: its own override, else the workspace default.</summary>
+    public async Task<StatusScheme> EffectiveSchemeAsync(Space space, CancellationToken ct)
+        => (space.StatusSchemeId is { } id ? await schemes.FindAsync(id, ct) : null)
+           ?? await EnsureDefaultSchemeAsync(space.WorkspaceId, ct);
 }

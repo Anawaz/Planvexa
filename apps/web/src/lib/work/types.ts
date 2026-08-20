@@ -94,7 +94,16 @@ export type StatusDefinition = {
 export type StatusScheme = {
   id: string;
   name: string;
+  isDefault: boolean;
   statuses: StatusDefinition[];
+  /** null = workspace-level scheme; a guid = a per-Space override owned by that Space. */
+  spaceId: string | null;
+};
+
+/** The scheme a Space actually uses, plus whether it owns it or inherits the workspace default. */
+export type SpaceStatusScheme = {
+  scheme: StatusScheme;
+  isCustomized: boolean;
 };
 
 export type Task = {

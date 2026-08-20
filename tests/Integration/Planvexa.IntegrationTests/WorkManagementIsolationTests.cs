@@ -148,7 +148,15 @@ public sealed class WorkManagementIsolationTests(PlanvexaFixture fixture)
         {
             await superuser.OpenAsync();
             await using var seed = superuser.CreateCommand();
+            // 0092 gave work.status_schemes.workspace_id a real foreign key to tenancy.workspaces, so
+            // the two workspaces these rows belong to have to actually exist.
+            var ownerId = Guid.CreateVersion7();
             seed.CommandText =
+                $"INSERT INTO identity.users (id, subject, email, display_name, is_active, created_at_utc) VALUES " +
+                $"('{ownerId}', 'iso-{ownerId:N}', 'iso-{ownerId:N}@planvexa.test', 'Isolation Owner', true, now()); " +
+                $"INSERT INTO tenancy.workspaces (id, workspace_id, name, slug, status, created_by_user_id, created_at_utc) VALUES " +
+                $"('{workspaceA}', '{workspaceA}', 'Workspace A', 'iso-a-{workspaceA:N}', 'Active', '{ownerId}', now()), " +
+                $"('{workspaceB}', '{workspaceB}', 'Workspace B', 'iso-b-{workspaceB:N}', 'Active', '{ownerId}', now()); " +
                 $"INSERT INTO work.status_schemes (id, workspace_id, name, is_default) VALUES " +
                 $"('{schemeA}', '{workspaceA}', 'Scheme A', true), " +
                 $"('{schemeB}', '{workspaceB}', 'Scheme B', true);";

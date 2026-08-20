@@ -29,7 +29,7 @@ export default function OnboardingPage() {
       apiClient.post<CreatedWorkspace>("/workspaces", body),
     onSuccess: async () => {
       try {
-        await queryClient.invalidateQueries({ queryKey: ["workspaces", "all"] });
+        await queryClient.invalidateQueries({ queryKey: ["workspaces", "me"] });
         // Full navigation so the app shell re-bootstraps cleanly and resolves the new Workspace.
         window.location.assign("/app");
       } catch (error) {

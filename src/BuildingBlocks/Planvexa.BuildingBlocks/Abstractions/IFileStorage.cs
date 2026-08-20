@@ -14,6 +14,14 @@ public interface IFileStorage
     Task DeleteAsync(string path, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Deletes every blob whose path starts with <paramref name="prefix"/>. Used to drop a deleted
+    /// Workspace's whole <c>workspaces/{workspaceId}/</c> subtree in one call rather than enumerating
+    /// the rows that referenced it. A prefix that matches nothing is a no-op, like
+    /// <see cref="DeleteAsync"/> on a missing blob.
+    /// </summary>
+    Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// A time-limited URL a client can GET directly to download the blob at <paramref name="path"/>
     /// — for object storage this is a native pre-signed GET that bypasses the API for
     /// the byte transfer entirely; for local disk (which has no notion of a direct-to-storage URL) it is

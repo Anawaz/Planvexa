@@ -77,7 +77,14 @@ public sealed record ListDto(Guid Id, Guid SpaceId, Guid? FolderId, string Name,
 public sealed record WorkTemplateDto(Guid Id, string ResourceType, string Name, DateTimeOffset CreatedAtUtc);
 public sealed record WorkFavoriteDto(Guid Id, string ResourceType, Guid ResourceId, DateTimeOffset CreatedAtUtc);
 public sealed record StatusDto(Guid Id, string Name, string Category, string Color, double Position, IReadOnlyList<Guid> AllowedNextStatusIds);
-public sealed record StatusSchemeDto(Guid Id, string Name, bool IsDefault, IReadOnlyList<StatusDto> Statuses);
+/// <summary><paramref name="SpaceId"/> null = a workspace-level scheme; set = that Space's override.</summary>
+public sealed record StatusSchemeDto(Guid Id, string Name, bool IsDefault, IReadOnlyList<StatusDto> Statuses, Guid? SpaceId);
+
+/// <summary>A Space's effective scheme plus whether it is the Space's own override or the inherited workspace default.</summary>
+public sealed record SpaceStatusSchemeDto(StatusSchemeDto Scheme, bool IsCustomized);
+
+/// <summary>Explicit "move the tasks sitting on FromStatusId onto ToStatusId" instruction (see B2).</summary>
+public sealed record StatusMappingInput(Guid FromStatusId, Guid ToStatusId);
 public sealed record TagDto(Guid Id, string Name, string Color);
 
 public sealed record TaskDto(

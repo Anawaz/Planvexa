@@ -74,6 +74,14 @@ public sealed class TaskList : WorkEntity, IAggregateRoot
         Touch(userId, nowUtc);
     }
 
+    /// <summary>Repoints this List at another scheme. The caller must move every task of this list onto a
+    /// status of the new scheme in the same unit of work (see StatusSchemeService's remap).</summary>
+    public void SetStatusScheme(Guid schemeId, Guid userId, DateTimeOffset nowUtc)
+    {
+        StatusSchemeId = schemeId;
+        Touch(userId, nowUtc);
+    }
+
     /// <summary>Moves this List to a different Space and/or Folder (folderId null = folderless,
     /// directly under the Space). The caller is responsible for validating both belong to this List's
     /// Workspace and that folderId (if given) actually belongs to spaceId.</summary>

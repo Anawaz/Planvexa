@@ -314,6 +314,25 @@ foreign keys keep child rows within their workspace, PostgreSQL Row-Level Securi
 isolation boundary, and the resolved, immutable workspace context (never taken from a request body)
 scopes every query, cache key, search index and file path.
 
+Every table carrying a `workspace_id` also has a foreign key to `tenancy.workspaces` with
+`ON DELETE CASCADE`, so deleting a workspace (`/app/settings/workspace`, Owner-only and irreversible)
+is a single `DELETE` that removes everything it owns. `audit.audit_events` and
+`platform.outbox_messages` are excluded on purpose so the audit trail outlives the workspace it
+describes. **A new workspace-owned table must declare that foreign key**, or its rows will be left
+behind.
+
+## Statuses and workflows
+
+Status schemes are **workspace defaults with optional per-Space overrides**. A Space inherits the
+workspace default until it customizes at `/app/spaces/{id}/statuses`; after that its changes affect
+only that Space. Workspace defaults live at `/app/settings/statuses` (create, rename, recolour,
+reorder and remove statuses, or start from a Kanban/Scrum/Bug-tracking template);
+`/app/settings/workflows` remains the separate screen for allowed-transition restrictions.
+
+Because `tasks.status_id` has no foreign key to `statuses`, removing a status always requires naming
+a replacement, and the affected tasks are moved to it. See section 11 of
+`docs/Planvexa-Product-Specification.md` for the full resolution rules.
+
 ## Production deployment
 
 - **Kubernetes/Helm:** `infrastructure/helm/planvexa` deploys the API and web app (built from

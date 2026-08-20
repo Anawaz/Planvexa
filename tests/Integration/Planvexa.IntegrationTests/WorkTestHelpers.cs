@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 internal sealed record SpaceResp(Guid Id, string Name, double Position, bool IsArchived);
 internal sealed record ListResp(Guid Id, Guid SpaceId, Guid? FolderId, string Name, Guid StatusSchemeId, double Position);
 internal sealed record StatusResp(Guid Id, string Name, string Category, string Color, double Position, List<Guid> AllowedNextStatusIds);
-internal sealed record SchemeResp(Guid Id, string Name, bool IsDefault, List<StatusResp> Statuses);
+internal sealed record SchemeResp(Guid Id, string Name, bool IsDefault, List<StatusResp> Statuses, Guid? SpaceId);
 internal sealed record TaskResp(
     Guid Id, Guid ListId, Guid SpaceId, Guid? ParentId, long Sequence, string Title,
     Guid StatusId, string Priority, DateTimeOffset? DueDate, bool IsMilestone, bool IsCompleted,

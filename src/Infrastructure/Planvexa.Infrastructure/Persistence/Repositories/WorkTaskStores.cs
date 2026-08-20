@@ -47,6 +47,12 @@ internal sealed class WorkItemStore(PlanvexaDbContext db) : IWorkItemStore
         return ordered.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
     }
 
+    public async Task<IReadOnlyList<WorkItem>> ListByStatusAsync(Guid statusId, CancellationToken ct = default)
+        => await db.Set<WorkItem>().Where(x => x.StatusId == statusId).ToListAsync(ct);
+
+    public Task<int> CountByStatusAsync(Guid statusId, CancellationToken ct = default)
+        => db.Set<WorkItem>().CountAsync(x => x.StatusId == statusId, ct);
+
     public async Task<IReadOnlyList<WorkItem>> ListAssignedToUserAsync(Guid userId, Guid? workspaceId = null, CancellationToken ct = default)
     {
         var taskIds = db.Set<TaskAssignee>()

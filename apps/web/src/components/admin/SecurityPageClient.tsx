@@ -23,7 +23,7 @@ const emptyDraft: UpdateSecuritySettingsInput = {
 
 function toggleClassName(enabled: boolean) {
   return cn(
-    "rounded-xl border p-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
+    "flex items-start gap-3 rounded-xl border p-4 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring",
     enabled ? "border-primary bg-primary/10" : "border-border bg-background",
   );
 }
@@ -87,18 +87,16 @@ export function SecurityPageClient() {
           <fieldset className="space-y-4">
             <legend className="text-lg font-semibold">Single sign-on</legend>
             <label className={toggleClassName(draft.ssoEnabled)}>
-              <span className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={draft.ssoEnabled}
-                  onChange={(event) => setDraft((current) => ({ ...current, ssoEnabled: event.target.checked }))}
-                  className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
-                />
-                <span>
-                  <span className="block text-sm font-semibold">Enable SAML SSO</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Route authentication through the workspace identity provider once backend enforcement is wired.
-                  </span>
+              <input
+                type="checkbox"
+                checked={draft.ssoEnabled}
+                onChange={(event) => setDraft((current) => ({ ...current, ssoEnabled: event.target.checked }))}
+                className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-semibold">Enable SAML SSO</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Route authentication through the workspace identity provider once backend enforcement is wired.
                 </span>
               </span>
             </label>
@@ -130,18 +128,16 @@ export function SecurityPageClient() {
           <fieldset className="space-y-4">
             <legend className="text-lg font-semibold">Directory sync</legend>
             <label className={toggleClassName(draft.scimEnabled)}>
-              <span className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={draft.scimEnabled}
-                  onChange={(event) => setDraft((current) => ({ ...current, scimEnabled: event.target.checked }))}
-                  className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
-                />
-                <span>
-                  <span className="block text-sm font-semibold">Enable SCIM provisioning</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Provision and deprovision workspace members from the identity provider.
-                  </span>
+              <input
+                type="checkbox"
+                checked={draft.scimEnabled}
+                onChange={(event) => setDraft((current) => ({ ...current, scimEnabled: event.target.checked }))}
+                className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-semibold">Enable SCIM provisioning</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Provision and deprovision workspace members from the identity provider.
                 </span>
               </span>
             </label>
@@ -171,21 +167,19 @@ export function SecurityPageClient() {
           <fieldset className="space-y-4">
             <legend className="text-lg font-semibold">Workspace access policy</legend>
             <label className={toggleClassName(draft.mfaRequired)}>
-              <span className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={draft.mfaRequired}
-                  onChange={(event) => setDraft((current) => ({ ...current, mfaRequired: event.target.checked }))}
-                  className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
-                />
-                <span>
-                  <span className="block text-sm font-semibold">Require MFA for members</span>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    Blocks every member from this workspace until their session has completed a second
-                    factor — enforced on the backend for every request, not only shown here. A member
-                    completes MFA by setting up an authenticator in their identity provider account and
-                    signing in again.
-                  </span>
+              <input
+                type="checkbox"
+                checked={draft.mfaRequired}
+                onChange={(event) => setDraft((current) => ({ ...current, mfaRequired: event.target.checked }))}
+                className="mt-1 size-4 rounded border-border accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-semibold">Require MFA for members</span>
+                <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                  Blocks every member from this workspace until their session has completed a second
+                  factor — enforced on the backend for every request, not only shown here. A member
+                  completes MFA by setting up an authenticator in their identity provider account and
+                  signing in again.
                 </span>
               </span>
             </label>

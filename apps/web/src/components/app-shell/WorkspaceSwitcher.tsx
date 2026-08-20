@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAppContext } from "@/lib/app-context/AppContext";
 
 export function WorkspaceSwitcher() {
@@ -26,6 +27,14 @@ export function WorkspaceSwitcher() {
           ))}
         </select>
       </label>
+      <Link
+        href="/onboarding"
+        aria-label="Create workspace"
+        title="Create workspace"
+        className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        +
+      </Link>
     </div>
   );
 }

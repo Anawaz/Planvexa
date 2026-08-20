@@ -116,6 +116,11 @@ export const settingsGroups: SettingsGroup[] = [
     description: "How the workspace plans, connects and syncs.",
     links: [
       {
+        href: "/app/settings/workspace",
+        label: "Workspace",
+        description: "Create another workspace, or delete this one.",
+      },
+      {
         href: "/app/settings/planning",
         label: "Planning",
         description: "Capacity defaults and auto-scheduling rules.",
@@ -129,6 +134,11 @@ export const settingsGroups: SettingsGroup[] = [
         href: "/app/settings/workflows",
         label: "Workflows",
         description: "Status schemes and which status transitions are allowed.",
+      },
+      {
+        href: "/app/settings/statuses",
+        label: "Statuses",
+        description: "Workspace default statuses and workflows. Spaces can override these.",
       },
       {
         href: "/app/settings/time-policy",

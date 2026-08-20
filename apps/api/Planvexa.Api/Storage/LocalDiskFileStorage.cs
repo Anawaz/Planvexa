@@ -51,6 +51,19 @@ public sealed class LocalDiskFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task DeletePrefixAsync(string prefix, CancellationToken cancellationToken = default)
+    {
+        // A logical prefix is a directory on disk. Resolve applies the same escape guard as every other
+        // path here; a missing directory is a no-op, matching DeleteAsync above.
+        var full = Resolve(prefix);
+        if (Directory.Exists(full))
+        {
+            Directory.Delete(full, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<string> GetSignedDownloadUrlAsync(string path, TimeSpan expiry, CancellationToken cancellationToken = default)
         => Task.FromResult(BuildSignedUrl("download", path, contentType: null, expiry));
 

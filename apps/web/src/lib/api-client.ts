@@ -116,5 +116,5 @@ export const apiClient = {
   post<TResponse, TBody = unknown>(path: string, body?: TBody, options?: ApiRequestOptions) { return request<TResponse, TBody>("POST", path, { ...options, body }); },
   put<TResponse, TBody = unknown>(path: string, body?: TBody, options?: ApiRequestOptions) { return request<TResponse, TBody>("PUT", path, { ...options, body }); },
   patch<TResponse, TBody = unknown>(path: string, body?: TBody, options?: ApiRequestOptions) { return request<TResponse, TBody>("PATCH", path, { ...options, body }); },
-  delete<TResponse>(path: string, options?: ApiRequestOptions) { return request<TResponse>("DELETE", path, options); },
+  delete<TResponse, TBody = unknown>(path: string, body?: TBody, options?: ApiRequestOptions) { return request<TResponse, TBody>("DELETE", path, { ...options, body }); },
 };

@@ -21,6 +21,8 @@ vi.mock("@/lib/work/client", async (importOriginal) => {
 const scheme: StatusScheme = {
   id: "scheme-1",
   name: "Default",
+  isDefault: true,
+  spaceId: null,
   statuses: [
     { id: "todo", name: "To Do", category: "NotStarted", color: "#8b8b8b", position: 1, allowedNextStatusIds: [] },
     { id: "doing", name: "In Progress", category: "Active", color: "#2b7fff", position: 2, allowedNextStatusIds: [] },

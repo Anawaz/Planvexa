@@ -14,6 +14,11 @@ public sealed class SpaceConfiguration : IEntityTypeConfiguration<Space>
         b.Property(x => x.Color).HasMaxLength(32);
         b.Property(x => x.Icon).HasMaxLength(64);
         b.HasIndex(x => x.WorkspaceId);
+
+        // Declared (unlike StatusScheme.SpaceId, which stays a scalar so the model has no cycle) purely
+        // for save ordering: without it EF stamps the new override id on the Space before inserting the
+        // scheme row, and DbUp 0093's fk_spaces_status_scheme rejects it.
+        b.HasOne<StatusScheme>().WithMany().HasForeignKey(x => x.StatusSchemeId).OnDelete(DeleteBehavior.SetNull);
         b.Ignore(x => x.DomainEvents);
     }
 }
@@ -54,6 +59,11 @@ public sealed class StatusSchemeConfiguration : IEntityTypeConfiguration<StatusS
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).HasMaxLength(128).IsRequired();
         b.HasIndex(x => x.WorkspaceId);
+
+        // SpaceId null = workspace-level scheme, set = that Space's override. Kept as a plain scalar
+        // (the FK lives in DbUp 0093) — declaring both this and Space.StatusSchemeId as EF relationships
+        // would make the model a cycle for no runtime gain.
+        b.HasIndex(x => new { x.WorkspaceId, x.SpaceId });
         b.HasMany(x => x.Statuses).WithOne().HasForeignKey(s => s.SchemeId).OnDelete(DeleteBehavior.Cascade);
         b.Navigation(x => x.Statuses).UsePropertyAccessMode(PropertyAccessMode.Field);
         b.Ignore(x => x.DomainEvents);
