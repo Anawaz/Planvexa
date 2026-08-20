@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { PageHeader, panelClassName, selectClassName, textInputClassName } from "@/components/admin/admin-ui";
+import { QueryState } from "@/components/ui/QueryState";
 import { createStatusScheme, deleteStatusScheme, listWorkspaceStatusSchemes } from "@/lib/work/client";
 import { workKeys } from "@/lib/work/queries";
 import { statusPresets } from "@/lib/work/statusPresets";
@@ -118,40 +119,43 @@ export function StatusSettingsPageClient() {
         </p>
       ) : null}
 
-      {schemesQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading workflows…</p>
-      ) : schemes.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-          No workflows yet.
-        </p>
-      ) : (
-        schemes.map((scheme) => (
-          <section key={scheme.id} className={panelClassName} aria-label={scheme.name}>
-            <div className="flex items-center justify-end gap-2 px-4 pt-4">
-              {scheme.isDefault ? (
-                <span className="mr-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                  Default
-                </span>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-red-600 dark:text-red-400"
-                disabled={scheme.isDefault || !canManage || deleteMutation.isPending}
-                title={scheme.isDefault ? "The default workflow cannot be deleted." : undefined}
-                onClick={() => {
-                  if (window.confirm(`Delete the workflow "${scheme.name}"? Lists still using it will block this.`)) {
-                    deleteMutation.mutate(scheme.id);
-                  }
-                }}
-              >
-                Delete workflow
-              </Button>
-            </div>
-            <StatusSchemeEditor scheme={scheme} canManage={canManage} onChanged={invalidate} />
-          </section>
-        ))
-      )}
+      {/* Through QueryState so a failed load can never render as an empty page: this list used to be
+          `data ?? []`, so an API failure showed "No workflows yet." — which reads as "this workspace
+          has no workflows" rather than "this did not load", and hides every editor with it. */}
+      <QueryState query={schemesQuery} loadingLabel="Loading workflows…">
+        {schemes.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
+            This workspace has no workflows. Create one above.
+          </p>
+        ) : (
+          schemes.map((scheme) => (
+            <section key={scheme.id} className={panelClassName} aria-label={scheme.name}>
+              <div className="flex items-center justify-end gap-2 px-4 pt-4">
+                {scheme.isDefault ? (
+                  <span className="mr-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    Default
+                  </span>
+                ) : null}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-600 dark:text-red-400"
+                  disabled={scheme.isDefault || !canManage || deleteMutation.isPending}
+                  title={scheme.isDefault ? "The default workflow cannot be deleted." : undefined}
+                  onClick={() => {
+                    if (window.confirm(`Delete the workflow "${scheme.name}"? Lists still using it will block this.`)) {
+                      deleteMutation.mutate(scheme.id);
+                    }
+                  }}
+                >
+                  Delete workflow
+                </Button>
+              </div>
+              <StatusSchemeEditor scheme={scheme} canManage={canManage} onChanged={invalidate} />
+            </section>
+          ))
+        )}
+      </QueryState>
     </section>
   );
 }

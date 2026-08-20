@@ -155,6 +155,26 @@ test.describe("workspace default statuses", () => {
   });
 });
 
+/** Deliberately provokes a failed request, so it gets its own guard and no scratch-cleanup hook. */
+test.describe("statuses page failure handling", () => {
+  test.use({ consoleAllowlist: ["Failed to load resource: the server responded with a status of 500"] });
+
+  test("a failed load reports an error instead of looking empty", async ({ page }) => {
+    // The page used to render `data ?? []`, so an API failure showed "No workflows yet." — which
+    // reads as "this workspace has none" and hides every editor, making a transient outage look
+    // exactly like a missing feature. It must say the load failed.
+    await page.route("**/status-schemes**", (route) => route.fulfill({ status: 500, body: "{}" }));
+
+    await page.goto(STATUSES_URL);
+
+    // QueryState's own error card, by its copy — a bare getByRole("alert") would also be satisfied
+    // by the Next.js dev-tools overlay's empty alert region, which proves nothing.
+    await expect(page.getByRole("alert").filter({ hasText: "Something went wrong" })).toBeVisible();
+    await expect(page.getByText("No workflows yet.")).toHaveCount(0);
+    await expect(page.getByText("This workspace has no workflows. Create one above.")).toHaveCount(0);
+  });
+});
+
 test.describe("per-space status overrides", () => {
   test.afterEach(async ({ page }) => {
     await revertToWorkspaceDefault(page, SPACE_B.id);

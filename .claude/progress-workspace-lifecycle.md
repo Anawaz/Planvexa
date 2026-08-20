@@ -48,6 +48,19 @@ the last completed step instead of restarting. Status values: `todo` / `in-progr
 | V4 | Diff review against the plan | done | Found + fixed by review: A's `0092` insert-ordering (→ `DEFERRABLE`), B's cross-listed-task remap, B's unvalidated `fromStatusId`, and the missing role gate on both status pages (wired to `role >= Admin`, matching `WorkManagementAuthorizer.CanManageStructure`). |
 | V5 | Docs update (README + `docs/`) | done | README: cascade-FK rule for new workspace-owned tables + a Statuses/workflows section. Spec: new §6.4 Workspace deletion, §11.1 resolution rules, §11.2 mandatory replacement + known ceiling. |
 
+## Follow-up round: poisoned dev cache + whole-app browser sweep
+
+| Step | Description | Status | Notes |
+| --- | --- | --- | --- |
+| F1 | Prevent the `.next` collision | done | `distDir: process.env.NEXT_DIST_DIR ?? ".next"` in `next.config.ts`. Proven: after `NEXT_DIST_DIR=.next-verify npm run build`, `.next/dev/types/routes.d.ts` is byte-identical and `BUILD_ID` lands in `.next-verify`. Deployment path (`output: "standalone"`) unchanged. |
+| F2 | Heal an already-poisoned cache | done | Guard in `web-install` (`AppHost.cs`), which `web` already `.WaitForCompletion`s. Keys on `.next/BUILD_ID`. Proven both ways in a scratch dir: warm dev cache left alone, `BUILD_ID` present → `.next` removed. |
+| F3 | Failed load must not look empty | done | `/app/settings/statuses` and `/app/settings/workflows` now render through the existing `QueryState`. They previously did `data ?? []`, so an API failure showed "No workflows yet." and hid every editor — which is what made this look like a missing feature. |
+| F4 | Whole-app route smoke sweep | done | New `e2e/app-smoke.spec.ts`, derived from `navigation` in `nav-config.ts` so new pages are covered automatically. 45 routes + task detail panel. Asserts no error boundary, a level-1 heading, and (via console-guard) no console errors. |
+| F5 | Triage sweep findings | done | **No pre-existing app bugs found — all 45 routes passed on the first run.** The only failures were my own: a wrong task-panel assertion, and two over-broad `getByRole("alert")` checks that matched the Next.js dev-tools overlay. |
+| F6 | Fix the `tasks.spec.ts` flake | done | Root cause: assertions raced the post-reload refetch. Now waits for the row before asserting on its controls. 3/3 clean in isolation, 2 consecutive full suites clean. |
+| F7 | Stop test data accumulating | done | `global-teardown.ts` now also drains `E2E *` scratch workflows and `E2E Throwaway*` workspaces. 39 schemes had piled up from failed runs; teardown removed 42 on first exercise. Also stripped two stray `E2E Renamed` statuses my earliest specs left in the seeded default scheme. |
+| F8 | Final verification | done | e2e **74 passed, 0 flaky**, twice consecutively. `dotnet build Planvexa.slnx -c Release` 0 warnings. tsc/lint clean. Security, statuses and space-statuses pages confirmed visually in dark theme. |
+
 ## NU1903 (fixed here at the user's request)
 
 `dotnet build -c Release` used to fail on **NU1903**: SSH.NET 2025.1.0 carries

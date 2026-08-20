@@ -59,6 +59,16 @@ const nextConfig: NextConfig = {
   // Self-contained server bundle for the container image. No effect on `next dev`.
   output: "standalone",
 
+  // `next dev` and `next build` both default to .next, so a verification build run while the dev
+  // server is up writes the same files concurrently and tears them — leaving a half-written
+  // .next/dev/types/routes.d.ts and stale modules whose exports no longer match source ("<symbol> is
+  // not a function"). The damage is NOT reliably detectable afterwards: the build's own markers
+  // (BUILD_ID, server/, standalone/) can be gone while torn dev files remain, so the collision has to
+  // be prevented rather than cleaned up. Default is unchanged, so production builds and the
+  // Dockerfile's `output: "standalone"` still use .next; only a checking build overrides it:
+  //     NEXT_DIST_DIR=.next-verify npm run build
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   async headers() {
     return [
       {

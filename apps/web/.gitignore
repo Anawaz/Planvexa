@@ -15,6 +15,8 @@
 
 # next.js
 /.next/
+# Build dir used by verification builds (NEXT_DIST_DIR) so they never race the dev server's /.next.
+/.next-verify/
 /out/
 
 # production

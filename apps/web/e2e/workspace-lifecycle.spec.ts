@@ -66,7 +66,11 @@ test("a workspace can be created from the switcher and permanently deleted", asy
   // alert. Waiting for that navigation specifically — "**/app**" would match the settings page we
   // are already on, so it returned instantly and let the rest of the test race a delete that had
   // not landed yet.
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  // Scoped to the danger-zone form: a bare getByRole("alert") also matches the Next.js dev-tools
+  // overlay, which mounts an empty alert region and made this fail at random.
+  await expect(
+    page.locator("form").filter({ hasText: "Delete this workspace" }).getByRole("alert"),
+  ).toHaveCount(0);
   await expect(page).toHaveURL(/\/app\/?$/, { timeout: 15_000 });
 
   // 3. Back inside a surviving workspace, with the throwaway gone from the switcher entirely.

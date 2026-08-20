@@ -228,6 +228,12 @@ npm run build     # production build
 npm run dev       # dev server (http://localhost:3000)
 ```
 
+> **Building while the dev server is running?** Set `NEXT_DIST_DIR=.next-verify` first. `next dev`
+> and `next build` both write `.next` by default, and running them together tears the files in it —
+> leaving the dev server serving stale modules whose exports no longer match source (`<symbol> is not
+> a function`). The AppHost repairs an obviously-poisoned `.next` on startup, but only the separate
+> build directory prevents the collision. Deployment builds are unaffected and still use `.next`.
+
 > If you run the dev server by hand (outside the AppHost), set
 > `NODE_OPTIONS=--max-http-header-size=65536` first. Browsers share `localhost` cookies across all
 > ports, so other dev tools' cookies plus the chunked session can exceed Node's default 16 KB header

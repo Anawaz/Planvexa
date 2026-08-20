@@ -96,6 +96,7 @@ pwsh scripts/dev-down.ps1
 
 # Frontend
 cd apps/web && npm ci && npm run lint && npm run build
+# Building while the dev server is up? Use NEXT_DIST_DIR=.next-verify — sharing .next tears it.
 ```
 
 ## Repository map
