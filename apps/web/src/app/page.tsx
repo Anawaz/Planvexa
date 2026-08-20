@@ -1,31 +1,19 @@
 import Link from "next/link";
 import { buttonStyles } from "@/components/ui/Button";
-
-const API_BASE_URL = (process.env.API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
-
-// Anonymous, server-side: whether to offer self-service signup at all (Registration:
-// AllowSelfRegistration — see UserDirectory.GetOrProvisionAsync's gate). Defaults to showing the
-// buttons if the API can't be reached, rather than hiding a real signup path on a transient outage.
-async function getAllowSelfRegistration(): Promise<boolean> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/public/registration-policy`, { cache: "no-store" });
-    if (!response.ok) return true;
-    const data = (await response.json()) as { allowSelfRegistration: boolean };
-    return data.allowSelfRegistration;
-  } catch {
-    return true;
-  }
-}
+import { getInstanceBranding } from "@/lib/branding/server";
 
 export default async function LandingPage() {
-  const allowSelfRegistration = await getAllowSelfRegistration();
+  // One anonymous, server-side lookup for both the signup gate (Registration:AllowSelfRegistration —
+  // see UserDirectory.GetOrProvisionAsync) and the operator's branding. See getInstanceBranding for the
+  // API-unreachable fallback.
+  const { instanceName, allowSelfRegistration } = await getInstanceBranding();
 
   return (
     <main className="min-h-screen overflow-hidden bg-background">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-8 lg:px-10">
         <nav className="flex items-center justify-between" aria-label="Landing">
           <Link href="/" className="text-lg font-semibold tracking-tight">
-            Planvexa
+            {instanceName}
           </Link>
           <div className="flex items-center gap-3">
             <Link

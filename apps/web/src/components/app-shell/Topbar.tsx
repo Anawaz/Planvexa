@@ -13,6 +13,7 @@ import { useAppContext } from "@/lib/app-context/AppContext";
 import { getHostAdminStatus } from "@/lib/host/client";
 import { hostKeys } from "@/lib/host/queries";
 import { SidebarNavigation } from "./Sidebar";
+import { Wordmark } from "./Wordmark";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 /** The palette itself lives in the app layout, next to the other shortcut dialogs. */
@@ -101,7 +102,9 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
         >
           Menu
         </Button>
-        <div className="font-semibold lg:hidden">Planvexa</div>
+        <div className="lg:hidden">
+          <Wordmark href="/app" />
+        </div>
         <WorkspaceSwitcher />
         <PresenceAvatars />
         <button
@@ -214,7 +217,7 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
             className="absolute inset-y-0 left-0 flex w-80 max-w-[85vw] flex-col border-r border-border bg-card shadow-2xl pv-animate-drawer-left"
           >
             <div className="flex h-16 items-center justify-between border-b border-border px-4">
-              <span className="text-lg font-semibold tracking-tight">Planvexa</span>
+              <Wordmark href="/app" />
               <Button
                 type="button"
                 variant="ghost"

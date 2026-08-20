@@ -553,6 +553,80 @@ public sealed class HostAdminFlowTests(PlanvexaFixture fixture)
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    /// <summary>
+    /// The self-registration toggle end to end: flipped through the host console, enforced on the very
+    /// next request by a brand-new identity, and reflected by the anonymous endpoint the sign-in page
+    /// reads. RegistrationGateTests covers the same gate seeded from CONFIGURATION; this covers the
+    /// live toggle, which is the path an operator actually uses.
+    /// </summary>
+    [Fact]
+    public async Task Turning_off_self_registration_blocks_new_identities_and_shows_on_the_public_endpoint()
+    {
+        var (host, _, _, _, _, _) = await SetupAsync("hselfreg");
+
+        // Baseline: an unknown subject can provision itself.
+        (await fixture.AuthClient(TestData.NewSubject()).GetAsync(new Uri("/api/v1/users/me", UriKind.Relative)))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await host.PutAsJsonAsync("/api/v1/host/settings", new { allowSelfRegistration = false }))
+            .EnsureSuccessStatusCode();
+
+        try
+        {
+            // Enforced in UserDirectory.GetOrProvisionAsync — the path EVERY authenticated request takes,
+            // so this holds for bootstrap endpoints too, not just workspace-scoped ones. No restart and
+            // no cache wait: InstanceSettingsService invalidates its memo on write.
+            (await fixture.AuthClient(TestData.NewSubject()).GetAsync(new Uri("/api/v1/users/me", UriKind.Relative)))
+                .StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+
+            // An account that already exists is unaffected — closing registration must not lock out the
+            // people already using the instance.
+            (await host.GetAsync(new Uri("/api/v1/host/overview", UriKind.Relative)))
+                .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            // And the anonymous endpoint the landing/sign-in pages read reports it, so they can stop
+            // offering a signup path that would only be rejected.
+            var anonymous = fixture.Factory.CreateClient();
+            var policy = await anonymous.GetFromJsonAsync<PublicPolicyResponse>("/api/v1/public/registration-policy");
+            policy!.AllowSelfRegistration.ShouldBeFalse();
+        }
+        finally
+        {
+            (await host.PutAsJsonAsync("/api/v1/host/settings", new { allowSelfRegistration = true }))
+                .EnsureSuccessStatusCode();
+        }
+
+        // Turning it back on re-opens registration immediately.
+        (await fixture.AuthClient(TestData.NewSubject()).GetAsync(new Uri("/api/v1/users/me", UriKind.Relative)))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// The invitation escape hatch has to keep working with self-registration off, or closing
+    /// registration would also break inviting new people — which is the main reason to close it.
+    /// </summary>
+    [Fact]
+    public async Task An_invited_person_can_still_join_while_self_registration_is_off()
+    {
+        var (host, _, _, stranger, _, strangerWorkspace) = await SetupAsync("hselfreginv");
+
+        (await host.PutAsJsonAsync("/api/v1/host/settings", new { allowSelfRegistration = false }))
+            .EnsureSuccessStatusCode();
+
+        try
+        {
+            // InviteMemberAsync provisions a brand-new subject and accepts the invitation — exactly the
+            // flow the gate must let through on the strength of the pending invitation alone.
+            var (_, invitedUserId) = await fixture.InviteMemberAsync(stranger, strangerWorkspace.Id, "selfreg-inv");
+            invitedUserId.ShouldNotBe(Guid.Empty);
+        }
+        finally
+        {
+            (await host.PutAsJsonAsync("/api/v1/host/settings", new { allowSelfRegistration = true }))
+                .EnsureSuccessStatusCode();
+        }
+    }
+
     [Fact]
     public async Task Restricting_workspace_creation_to_host_admins_blocks_everyone_else()
     {

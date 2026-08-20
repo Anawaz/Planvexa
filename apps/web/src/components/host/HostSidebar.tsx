@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/app-shell/icons";
+import { Wordmark } from "@/components/app-shell/Wordmark";
 import { cn } from "@/lib/utils";
 
 /**
@@ -137,12 +138,14 @@ export function HostSidebarNavigation({
  */
 export function HostWordmark() {
   return (
-    <Link href="/host" className="flex min-w-0 items-center gap-2">
-      <span className="truncate text-lg font-semibold tracking-tight">Planvexa</span>
-      <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-        Host
-      </span>
-    </Link>
+    <Wordmark
+      href="/host"
+      suffix={
+        <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+          Host
+        </span>
+      }
+    />
   );
 }
 

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/Button";
 import { QueryState } from "@/components/ui/QueryState";
+import { brandingKeys } from "@/lib/branding/client";
 import { getInstanceSettings, updateInstanceSettings } from "@/lib/host/client";
 import { hostKeys } from "@/lib/host/queries";
 import type { UpdateInstanceSettingsInput, WorkspaceCreationPolicy } from "@/lib/host/types";
@@ -27,6 +28,9 @@ export function SettingsPageClient() {
       setBrandingDraft(null);
       queryClient.setQueryData(hostKeys.settings(), settings);
       void queryClient.invalidateQueries({ queryKey: hostKeys.all });
+      // The shell headers read the instance name through their own cache entry, so without this a
+      // rename would not appear until that entry went stale — which reads as "my change didn't save".
+      void queryClient.invalidateQueries({ queryKey: brandingKeys.all });
     },
   });
 

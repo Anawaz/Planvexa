@@ -12,6 +12,7 @@ import { FavoritesNav } from "./FavoritesNav";
 import { Icon } from "./icons";
 import { isNavItemActive, navSections, type NavItem, type NavSection } from "./nav-config";
 import { SidebarSpaceTree } from "./SidebarSpaceTree";
+import { Wordmark } from "./Wordmark";
 
 // The command palette consumes this flat list; the sidebar itself renders the grouped structure.
 export { navigation } from "./nav-config";
@@ -132,9 +133,7 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:border-r lg:border-border lg:bg-card">
       <div className="flex h-16 items-center border-b border-border px-6">
-        <Link href="/app" className="text-lg font-semibold tracking-tight">
-          Planvexa
-        </Link>
+        <Wordmark href="/app" />
       </div>
       <SidebarNavigation className="flex-1 px-4 pb-6 pt-2" />
     </aside>
