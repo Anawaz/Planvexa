@@ -1,11 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ApiError } from "@/lib/api-client";
-import { cn } from "@/lib/utils";
 
 export {
   formatIsoDate,
@@ -19,50 +16,6 @@ export {
   IsoDateTime,
   PageHeader,
 } from "@/components/admin/admin-ui";
-
-/**
- * The host console's navigation. Kept here rather than in `app-shell/nav-config` because that file is
- * the WORKSPACE shell's navigation and every entry in it is workspace-scoped — mixing an
- * instance-level section into it would put host links in the workspace sidebar and the command
- * palette for people who cannot use them.
- */
-type HostNavItem = { href: string; label: string; /** Match the path exactly — the console root would otherwise be "active" on every page. */ exact?: boolean };
-
-export const hostNavItems: HostNavItem[] = [
-  { href: "/host", label: "Overview", exact: true },
-  { href: "/host/workspaces", label: "Workspaces" },
-  { href: "/host/users", label: "Users" },
-  { href: "/host/activity", label: "Activity" },
-  { href: "/host/logs", label: "Logs" },
-  { href: "/host/health", label: "Health" },
-  { href: "/host/settings", label: "Settings" },
-];
-
-export function HostNav({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
-
-  return (
-    <nav aria-label="Host administration" className="space-y-1">
-      {hostNavItems.map((item) => {
-        const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active ? "page" : undefined}
-            className={cn(
-              "block rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
-              active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
-            )}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 
 const numberFormatter = new Intl.NumberFormat("en");
 

@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { HostNav } from "@/components/host/host-ui";
+import { HostSidebar } from "@/components/host/HostSidebar";
+import { HostTopbar } from "@/components/host/HostTopbar";
 import { getHostAdminStatus } from "@/lib/host/client";
 import { hostKeys } from "@/lib/host/queries";
 
@@ -49,6 +49,8 @@ export default function HostLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  // Same shape as the workspace shell (see app/app/layout.tsx): a fixed 18rem rail, the content
+  // column offset by lg:pl-72, and a sticky top bar that owns the mobile drawer.
   return (
     <div className="min-h-screen bg-background">
       <a
@@ -57,24 +59,10 @@ export default function HostLayout({ children }: { children: ReactNode }) {
       >
         Skip to main content
       </a>
-
-      <div className="border-b-2 border-amber-500 bg-amber-50 px-6 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <span>
-            <strong className="font-semibold">Host administration.</strong> Changes here affect every
-            workspace on this server.
-          </span>
-          <Link href="/app/my-work" className="font-medium underline underline-offset-4">
-            Back to your workspace
-          </Link>
-        </div>
-      </div>
-
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-8 lg:flex-row">
-        <aside className="lg:w-56 lg:shrink-0">
-          <HostNav />
-        </aside>
-        <main id="host-content" className="min-w-0 flex-1">
+      <HostSidebar />
+      <div className="lg:pl-72">
+        <HostTopbar />
+        <main id="host-content" className="px-6 py-8 sm:px-8 lg:px-10">
           {children}
         </main>
       </div>
