@@ -124,9 +124,23 @@ internal sealed class InvitationStore(PlanvexaDbContext db, MaintenanceConnectio
             .OrderByDescending(i => i.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Same cross-workspace shape as <see cref="FindByTokenHashAsync"/> above, and it needs the same
+    /// maintenance connection: this runs on the invitee's very FIRST authenticated request, which
+    /// carries no <c>X-Workspace</c> — so <c>tenancy.invitations</c>' strict workspace_isolation policy
+    /// (0029) matches zero rows and the answer comes back "no pending invitation" under any role that
+    /// does not bypass RLS.
+    ///
+    /// The consequence was silent and severe: with self-registration turned off, an invited person
+    /// could never accept their invitation, because the registration gate
+    /// (UserDirectory.GetOrProvisionAsync) rejected them before the accept endpoint was ever reached.
+    /// It went unnoticed because RegistrationGateTests runs the API as the container's superuser, which
+    /// bypasses RLS and hides it; the shared PlanvexaFixture deliberately uses a NOBYPASSRLS role and
+    /// reproduces it.
+    /// </summary>
     public Task<bool> HasPendingForEmailAsync(string email, CancellationToken cancellationToken = default)
-        => db.Invitations.IgnoreQueryFilters().AnyAsync(
-            i => i.Email == email && i.Status == InvitationStatus.Pending, cancellationToken);
+        => maintenance.LookupAsync(db, () => db.Invitations.IgnoreQueryFilters().AnyAsync(
+            i => i.Email == email && i.Status == InvitationStatus.Pending, cancellationToken));
 }
 
 internal sealed class TeamStore(PlanvexaDbContext db) : ITeamStore
