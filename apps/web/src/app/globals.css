@@ -203,3 +203,57 @@ textarea {
   text-decoration: line-through;
   color: var(--color-muted-foreground);
 }
+
+/* Tiptap: the block types the description/comment toolbar can insert.
+   Tailwind's `prose` handles headings, lists, quotes and code; tables and checkbox lists are
+   Tiptap-specific structures it does not style, and without these they render as unreadable stacks of
+   bare text. Scoped to .ProseMirror so nothing here leaks into rendered app chrome. */
+.ProseMirror table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  overflow: hidden;
+}
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--color-border);
+  padding: 0.375rem 0.5rem;
+  vertical-align: top;
+  /* Without this a cell with a long unbroken string forces the whole editor to scroll sideways. */
+  overflow-wrap: anywhere;
+}
+.ProseMirror th {
+  background: var(--color-muted);
+  font-weight: 600;
+  text-align: left;
+}
+/* ProseMirror's cell-selection decoration; the default is invisible against a dark card. */
+.ProseMirror .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--color-primary) 18%, transparent);
+  pointer-events: none;
+}
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.ProseMirror ul[data-type="taskList"] li > label {
+  margin-top: 0.2rem;
+  flex: 0 0 auto;
+  user-select: none;
+}
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ProseMirror ul[data-type="taskList"] li > div > p {
+  margin: 0;
+}

@@ -30,6 +30,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.14.9",
     "@tiptap/extension-mention": "3.29.2",
+    "@tiptap/extension-table": "3.29.2",
     "@tiptap/extensions": "3.29.2",
     "@tiptap/react": "3.29.2",
     "@tiptap/starter-kit": "3.29.2",

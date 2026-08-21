@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { useAppContext } from "@/lib/app-context/AppContext";
 import type { AddCommentInput } from "@/lib/collab/types";
@@ -31,6 +31,7 @@ export function CommentComposer({
   const [body, setBody] = useState("");
   const [mentionUserIds, setMentionUserIds] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const { workspaceId } = useAppContext();
@@ -81,6 +82,9 @@ export function CommentComposer({
           placeholder={placeholder}
           autoFocus={autoFocus}
           minHeightClassName={parentId ? "min-h-16" : "min-h-20"}
+          // The toolbar's paperclip drives the same hidden file input as the "Attach a file" label
+          // below, so there is one upload path rather than two competing ones.
+          onAttachFile={() => fileInputRef.current?.click()}
           onChange={(markdown, mentions) => {
             setBody(markdown);
             setMentionUserIds(mentions);
@@ -108,6 +112,7 @@ export function CommentComposer({
           <label className="cursor-pointer text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
             Attach a file
             <input
+              ref={fileInputRef}
               type="file"
               className="sr-only"
               onChange={(event) => setFile(event.currentTarget.files?.[0] ?? null)}

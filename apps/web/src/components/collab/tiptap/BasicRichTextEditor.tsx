@@ -9,13 +9,11 @@
 // so it stays a plain string in the existing description/comment-body columns — no backend changes,
 // and every existing plain-text description/comment is already valid markdown.
 import { EditorContent, useEditor } from "@tiptap/react";
-import { Placeholder } from "@tiptap/extensions";
-import StarterKit from "@tiptap/starter-kit";
-import { useEffect, useRef } from "react";
-import { Markdown } from "tiptap-markdown";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId, useMemberDirectory, useMembers } from "@/lib/members";
-import { BasicToolbar } from "./BasicToolbar";
+import { BasicToolbar, EditorFooter } from "./BasicToolbar";
+import { createEditorExtensions } from "./editorExtensions";
 import { MentionExtension } from "./mentionExtension";
 import type { MentionListItem } from "./MentionList";
 import { createMentionSuggestion } from "./mentionSuggestion";
@@ -31,6 +29,8 @@ export type BasicRichTextEditorProps = {
   ariaLabel: string;
   minHeightClassName?: string;
   className?: string;
+  /** Wired to the caller's existing file-upload control; the paperclip is hidden when absent. */
+  onAttachFile?: () => void;
 };
 
 export function BasicRichTextEditor({
@@ -42,7 +42,12 @@ export function BasicRichTextEditor({
   ariaLabel,
   minHeightClassName = "min-h-24",
   className,
+  onAttachFile,
 }: BasicRichTextEditorProps) {
+  // The plain-text escape hatch. Raw markdown is kept in its own state while the mode is on and pushed
+  // into the editor when switching back, so the two views never fight over one source of truth.
+  const [plainText, setPlainText] = useState(false);
+  const [plainTextValue, setPlainTextValue] = useState(value);
   const { data: members } = useMembers();
   const directory = useMemberDirectory();
   const currentUserId = useCurrentUserId();
@@ -64,14 +69,12 @@ export function BasicRichTextEditor({
   const editor = useEditor(
     {
       extensions: [
-        StarterKit,
-        Placeholder.configure({ placeholder: placeholder ?? "" }),
+        ...createEditorExtensions(placeholder),
         // Tiptap's extensions array is built once (see the [] deps below) and this closure is only
         // ever invoked later from a suggestion event handler, never during render; the getter just
         // outlives the linter's static reach.
         // eslint-disable-next-line react-hooks/refs
         MentionExtension.configure({ suggestion: createMentionSuggestion(() => membersRef.current) }),
-        Markdown.configure({ html: false, transformPastedText: true }),
       ],
       content: value,
       editable,
@@ -107,6 +110,23 @@ export function BasicRichTextEditor({
     return null;
   }
 
+  // The null guard above already returned, but that narrowing does not reach into the closure below.
+  const activeEditor = editor;
+
+  function togglePlainText() {
+    if (plainText) {
+      // Back to rich text: parse whatever was typed as markdown, and re-emit so the caller's draft
+      // matches what the editor now holds.
+      activeEditor.commands.setContent(plainTextValue);
+      onChange?.(activeEditor.storage.markdown.getMarkdown() as string, []);
+      setPlainText(false);
+      return;
+    }
+
+    setPlainTextValue(activeEditor.storage.markdown.getMarkdown() as string);
+    setPlainText(true);
+  }
+
   return (
     <div
       className={cn(
@@ -115,10 +135,36 @@ export function BasicRichTextEditor({
         className,
       )}
     >
-      {editable ? <BasicToolbar editor={editor} className="border-b border-border px-2 py-1.5" /> : null}
-      <div className="px-3 py-2">
+      {editable && !plainText ? (
+        <BasicToolbar
+          editor={editor}
+          onAttachFile={onAttachFile}
+          className="border-b border-border px-2 py-1.5"
+        />
+      ) : null}
+
+      <div className={cn("px-3 py-2", plainText && "hidden")}>
         <EditorContent editor={editor} />
       </div>
+
+      {editable && plainText ? (
+        <textarea
+          aria-label={`${ariaLabel} (markdown)`}
+          value={plainTextValue}
+          onChange={(event) => {
+            setPlainTextValue(event.target.value);
+            // Emitted as-is: in this mode what the user typed IS the markdown, so there is nothing to
+            // serialize. Mentions cannot be resolved from raw text, hence the empty id list.
+            onChange?.(event.target.value, []);
+          }}
+          className={cn(
+            "w-full resize-y bg-transparent px-3 py-2 font-mono text-sm leading-6 outline-none",
+            minHeightClassName,
+          )}
+        />
+      ) : null}
+
+      {editable ? <EditorFooter plainText={plainText} onTogglePlainText={togglePlainText} /> : null}
     </div>
   );
 }
