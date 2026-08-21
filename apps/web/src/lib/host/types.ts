@@ -125,6 +125,10 @@ export type InstanceHealth = {
   maintenanceConnectionConfigured: boolean;
   version?: string | null;
   environment: string;
+  selfRegistrationEnabled: boolean;
+  identityProviderManageable: boolean;
+  identityProviderRegistrationAllowed: boolean | null;
+  identityProviderDetail?: string | null;
 };
 
 export type InstanceLogEntry = {

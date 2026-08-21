@@ -83,6 +83,25 @@ export function HealthPageClient() {
               </p>
             ) : null}
 
+            {health.selfRegistrationEnabled && health.identityProviderRegistrationAllowed === false ? (
+              <p
+                role="alert"
+                className="rounded-[var(--radius)] border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+              >
+                Self-registration is enabled here, but your identity provider is refusing to create new
+                accounts — sign-up will fail with &ldquo;Registration not allowed&rdquo; until it is
+                enabled there too. For Keycloak: Realm settings → Login → User registration.
+              </p>
+            ) : null}
+
+            {health.selfRegistrationEnabled && !health.identityProviderManageable ? (
+              <p className="rounded-[var(--radius)] border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                Self-registration is enabled here, but Planvexa cannot see or manage your identity
+                provider, so it cannot confirm that sign-up actually works.
+                {health.identityProviderDetail ? ` ${health.identityProviderDetail}` : null}
+              </p>
+            ) : null}
+
             {!health.maintenanceConnectionConfigured ? (
               <p className="rounded-[var(--radius)] border border-border bg-card p-4 text-sm text-muted-foreground">
                 No maintenance connection is configured
@@ -119,6 +138,40 @@ export function HealthPageClient() {
               />
               <Row label="Log minimum level" value={health.logMinimumLevel} />
               <Row label="Log retention" value={`${health.logRetentionDays} days`} />
+              {/* Both halves of self-registration side by side — when sign-up is broken, it is almost
+                  always because these two disagree. */}
+              <Row
+                label="Self-registration (Planvexa)"
+                value={
+                  <StatusBadge
+                    status={health.selfRegistrationEnabled ? "Enabled" : "Disabled"}
+                    tone={health.selfRegistrationEnabled ? "green" : "slate"}
+                  />
+                }
+              />
+              <Row
+                label="Self-registration (identity provider)"
+                value={
+                  <StatusBadge
+                    status={
+                      health.identityProviderRegistrationAllowed === null
+                        ? health.identityProviderManageable
+                          ? "Unknown"
+                          : "Not managed"
+                        : health.identityProviderRegistrationAllowed
+                          ? "Enabled"
+                          : "Disabled"
+                    }
+                    tone={
+                      health.identityProviderRegistrationAllowed === true
+                        ? "green"
+                        : health.identityProviderRegistrationAllowed === false
+                          ? "red"
+                          : "slate"
+                    }
+                  />
+                }
+              />
             </div>
           </div>
         ) : null}

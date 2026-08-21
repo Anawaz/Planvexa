@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Planvexa.BuildingBlocks.Abstractions;
 using Planvexa.Infrastructure.Persistence;
+using Planvexa.SharedContracts.Platform;
 
 public sealed record InstanceHealth(
     bool DatabaseReachable,
@@ -22,7 +23,14 @@ public sealed record InstanceHealth(
     string EmailSender,
     bool MaintenanceConnectionConfigured,
     string? Version,
-    string Environment);
+    string Environment,
+    /// <summary>This instance's self-registration setting.</summary>
+    bool SelfRegistrationEnabled,
+    /// <summary>Whether Planvexa can manage the identity provider's own registration flag.</summary>
+    bool IdentityProviderManageable,
+    /// <summary>The identity provider's flag, or null when it cannot be determined.</summary>
+    bool? IdentityProviderRegistrationAllowed,
+    string? IdentityProviderDetail);
 
 /// <summary>
 /// The host console's "is this installation healthy?" snapshot. Everything here is cheap to compute on
@@ -42,7 +50,9 @@ public sealed class InstanceHealthService(
     InstanceLogProvider logs,
     IClock clock,
     IConfiguration configuration,
-    IHostEnvironment environment)
+    IHostEnvironment environment,
+    IInstanceSettingsProvider instanceSettings,
+    IIdentityProviderRegistration identityProvider)
 {
     public async Task<InstanceHealth> GetAsync(CancellationToken cancellationToken = default)
     {
@@ -77,6 +87,9 @@ public sealed class InstanceHealthService(
                 e => e.CreatedAtUtc >= since && e.Level == "Warning", cancellationToken);
         }
 
+        var selfRegistration = (await instanceSettings.GetAsync(cancellationToken)).AllowSelfRegistration;
+        var identityProviderState = await identityProvider.GetAsync(cancellationToken);
+
         return new InstanceHealth(
             DatabaseReachable: reachable,
             DatabaseVersion: databaseVersion,
@@ -101,7 +114,14 @@ public sealed class InstanceHealthService(
                 configuration.GetConnectionString("PlanvexaMaintenance")),
             Version: Assembly.GetEntryAssembly()?
                 .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
-            Environment: environment.EnvironmentName);
+            Environment: environment.EnvironmentName,
+            // Both halves of self-registration, side by side. Reported here and not only on the settings
+            // page because "users cannot sign up" is a health question, and the answer is almost always
+            // that these two disagree.
+            SelfRegistrationEnabled: selfRegistration,
+            IdentityProviderManageable: identityProviderState.Manageable,
+            IdentityProviderRegistrationAllowed: identityProviderState.RegistrationAllowed,
+            IdentityProviderDetail: identityProviderState.Detail);
     }
 
     private async Task<T?> ScalarAsync<T>(string sql, CancellationToken cancellationToken)

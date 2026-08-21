@@ -235,6 +235,10 @@ if (keycloakAdminOptions is not null)
 // No `else`: AddInfrastructure already registered the no-op fallback, and the registration above wins
 // the resolve by being last.
 
+// Makes this instance's setting the durable source of truth: without a start-up reconcile, the two
+// halves of self-registration only converge when someone happens to touch the toggle.
+builder.Services.AddHostedService<Planvexa.Api.Platform.IdentityProviderReconciler>();
+
 // ---- Current user (scoped, populated by middleware) ----
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<CurrentUser>();

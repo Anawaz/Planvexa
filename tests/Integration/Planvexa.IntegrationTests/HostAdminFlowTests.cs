@@ -43,7 +43,9 @@ public sealed class HostAdminFlowTests(PlanvexaFixture fixture)
         int OutboxPending, int OutboxFailed, int ErrorsLast24Hours, int WarningsLast24Hours,
         int DroppedLogRecords, bool LogCaptureEnabled, string LogMinimumLevel, int LogRetentionDays,
         string FileStorageProvider, string EmailSender, bool MaintenanceConnectionConfigured,
-        string? Version, string Environment);
+        string? Version, string Environment,
+        bool SelfRegistrationEnabled, bool IdentityProviderManageable,
+        bool? IdentityProviderRegistrationAllowed, string? IdentityProviderDetail);
     private sealed record InstanceLogResponse(
         Guid Id, DateTimeOffset CreatedAtUtc, string Level, string Category, string Message,
         string? Exception, string? CorrelationId, Guid? UserId, Guid? WorkspaceId);
@@ -483,6 +485,14 @@ public sealed class HostAdminFlowTests(PlanvexaFixture fixture)
         health.LogRetentionDays.ShouldBeGreaterThan(0);
         health.Environment.ShouldBe("Testing");
         health.OutboxPending.ShouldBeGreaterThanOrEqualTo(0);
+
+        // Both halves of self-registration are reported, because "users cannot sign up" is a health
+        // question whose answer is almost always that these two disagree. No identity-provider admin
+        // credentials in the fixture, so Planvexa reports that it cannot manage or see that half.
+        health.SelfRegistrationEnabled.ShouldBeTrue();
+        health.IdentityProviderManageable.ShouldBeFalse();
+        health.IdentityProviderRegistrationAllowed.ShouldBeNull();
+        health.IdentityProviderDetail.ShouldNotBeNullOrWhiteSpace();
     }
 
     [Fact]
