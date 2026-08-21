@@ -140,7 +140,7 @@ export function DocumentsListPageClient() {
                 description="Use the “New document” form beside this table to write your first spec, note or runbook."
               />
             ) : (
-            <table className="min-w-full text-left text-sm">
+            <table className="w-full min-w-[50rem] text-left text-sm">
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Title</th>

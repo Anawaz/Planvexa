@@ -314,7 +314,7 @@ export function IntegrationsPageClient() {
               </h3>
             </header>
             <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="w-full min-w-[56rem] text-left text-sm">
                 <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-semibold">Event</th>
@@ -444,7 +444,7 @@ export function IntegrationsPageClient() {
         </form>
 
         <div className="mt-6 overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[56rem] text-left text-sm">
             <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Name</th>
@@ -547,7 +547,7 @@ export function IntegrationsPageClient() {
         </form>
 
         <div className="mt-6 overflow-x-auto rounded-xl border border-border">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[56rem] text-left text-sm">
             <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Name</th>

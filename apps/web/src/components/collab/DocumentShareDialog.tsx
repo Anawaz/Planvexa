@@ -153,7 +153,7 @@ export function DocumentShareDialog({ documentId, open, onOpenChange }: Document
         aria-modal="true"
         aria-labelledby="document-share-dialog-title"
         tabIndex={-1}
-        className="absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card p-5 shadow-2xl outline-none pv-animate-modal-centered"
+        className="absolute left-1/2 top-1/2 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-card max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-5 shadow-2xl outline-none pv-animate-modal-centered"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

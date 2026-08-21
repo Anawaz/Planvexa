@@ -80,7 +80,7 @@ function UtilizationSection({ from, to }: { from: string; to: string }) {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <table className="w-full min-w-[50rem] border-separate border-spacing-0 text-sm">
             <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-4 py-3 font-semibold">Member</th>
@@ -250,7 +250,7 @@ export default function TimeReportPage() {
           <p className="text-xs text-muted-foreground">Money is modeled as numbers and formatted with Intl.NumberFormat.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <table className="w-full min-w-[50rem] border-separate border-spacing-0 text-sm">
             <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th scope="col" className="px-4 py-3 font-semibold">Label</th>

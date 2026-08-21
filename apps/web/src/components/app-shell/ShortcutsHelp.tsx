@@ -26,7 +26,7 @@ export function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   useFocusTrap({ open: true, containerRef: dialogRef, onClose });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center px-4 py-24" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-16 sm:py-24" role="presentation">
       <button
         type="button"
         aria-label="Close keyboard shortcuts"

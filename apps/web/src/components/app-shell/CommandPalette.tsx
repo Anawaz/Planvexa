@@ -114,7 +114,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center px-4 py-24 sm:px-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto px-4 py-16 sm:px-6 sm:py-24"
       role="presentation"
     >
       <button
@@ -175,7 +175,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             className="mt-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           />
         </div>
-        <ul className="max-h-80 overflow-y-auto p-2" aria-label="Available commands">
+        <ul className="max-h-[min(20rem,50dvh)] overflow-y-auto p-2" aria-label="Available commands">
           {visibleCommands.length > 0 ? (
             visibleCommands.map((command, index) => (
               <li key={`${index}:${command.href}`}>

@@ -167,7 +167,7 @@ export function AuditPageClient() {
           </a>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[50rem] text-left text-sm">
             <caption className="sr-only">Audit log results.</caption>
             <thead className={tableHeaderClassName}>
               <tr>

@@ -98,7 +98,7 @@ export function ExportsPageClient() {
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[56rem] text-left text-sm">
             <caption className="sr-only">Governed export jobs.</caption>
             <thead className={tableHeaderClassName}>
               <tr>

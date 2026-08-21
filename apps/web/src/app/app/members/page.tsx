@@ -181,7 +181,8 @@ export default function MembersPage() {
       {invitations.length > 0 ? (
         <div className="overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-sm">
           <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">Pending invitations</h2>
-          <table className="w-full border-collapse text-left text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
             <caption className="sr-only">Pending invitations</caption>
             <thead className="bg-muted text-muted-foreground">
               <tr>
@@ -210,12 +211,16 @@ export default function MembersPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       ) : null}
 
+      {/* `overflow-hidden` alone (which is all the rounded corners need) meant a four-column table on a
+          phone was cropped at the viewport edge with no way to reach the Actions column. */}
       <div className="overflow-hidden rounded-[var(--radius)] border border-border bg-card shadow-sm">
-        <table className="w-full border-collapse text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[36rem] border-collapse text-left text-sm">
           <caption className="sr-only">Workspace members</caption>
           <thead className="bg-muted text-muted-foreground">
             <tr>
@@ -300,6 +305,7 @@ export default function MembersPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <TeamsPanel />

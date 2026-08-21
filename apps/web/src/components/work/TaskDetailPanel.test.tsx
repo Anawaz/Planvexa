@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TaskDetailPanel } from "./TaskDetailPanel";
 import type { StatusDefinition, TaskDetail } from "@/lib/work/types";
@@ -68,14 +68,81 @@ function task(overrides: Partial<TaskDetail> = {}): TaskDetail {
   };
 }
 
-function renderPanel() {
+function renderPanel(onClose = vi.fn()) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  render(
     <QueryClientProvider client={queryClient}>
-      <TaskDetailPanel taskId="task-1" open statuses={statuses} onClose={vi.fn()} />
+      <TaskDetailPanel taskId="task-1" open statuses={statuses} onClose={onClose} />
     </QueryClientProvider>,
   );
+  return { onClose };
 }
+
+/**
+ * The header used to hold eight buttons in a non-wrapping row inside a drawer that clips its
+ * overflow, so on any narrow viewport the tail of the row — Close included — was unreachable and
+ * the panel could not be dismissed by anything but Escape.
+ */
+describe("TaskDetailPanel header actions", () => {
+  beforeEach(() => {
+    getTaskMock.mockReset();
+    listAttachmentsMock.mockReset();
+    getTaskMock.mockResolvedValue(task());
+    listAttachmentsMock.mockResolvedValue([]);
+  });
+
+  it("keeps Close reachable and moves the secondary actions into a menu", async () => {
+    const { onClose } = renderPanel();
+    // The heading renders before the query resolves; the loaded title is what says the task is in.
+    await screen.findByDisplayValue("Ship the feature");
+
+    // Only these three may sit in the header; anything else there is width the row does not have.
+    const header = screen.getByRole("heading", { name: "Task details" }).closest("header")!;
+    const headerButtons = [...header.querySelectorAll("button")].map(
+      (button) => button.getAttribute("aria-label") ?? button.textContent,
+    );
+    expect(headerButtons).toEqual(["Watch", "More task actions", "Close task details"]);
+
+    // Scoped to the header: the backdrop carries the same label, and it is the header's copy that
+    // has to exist for a viewport too narrow to show any backdrop.
+    fireEvent.click(within(header).getByLabelText("Close task details"));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("offers every secondary action in the overflow menu, and closes it on Escape", async () => {
+    renderPanel();
+    // The heading renders before the query resolves; the loaded title is what says the task is in.
+    await screen.findByDisplayValue("Ship the feature");
+
+    fireEvent.click(screen.getByLabelText("More task actions"));
+    const menu = screen.getByRole("menu");
+    expect([...menu.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
+      "Share…",
+      "Sharing…",
+      "Make private",
+      "Duplicate",
+      "Archive",
+      "Delete task",
+    ]);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("confirms deletion in its own strip rather than in the header", async () => {
+    renderPanel();
+    // The heading renders before the query resolves; the loaded title is what says the task is in.
+    await screen.findByDisplayValue("Ship the feature");
+
+    fireEvent.click(screen.getByLabelText("More task actions"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete task" }));
+
+    // Selecting the item both closes the menu and reveals the confirmation.
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("alertdialog", { name: "Confirm task deletion" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeTruthy();
+  });
+});
 
 describe("TaskDetailPanel attachment drop zone", () => {
   beforeEach(() => {

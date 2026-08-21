@@ -1,7 +1,8 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useDismissable } from "@/components/ui/ActionMenu";
 import { cn } from "@/lib/utils";
 
 /**
@@ -120,31 +121,6 @@ function ToolbarButton({
 
 function Divider() {
   return <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden="true" />;
-}
-
-/** Closes on outside click and Escape — the two ways anyone expects a menu to go away. */
-function useDismissable(open: boolean, close: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function onPointerDown(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) close();
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") close();
-    }
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open, close]);
-
-  return ref;
 }
 
 const BLOCK_TYPES = [

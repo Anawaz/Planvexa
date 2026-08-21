@@ -7,6 +7,7 @@ import { CommentThread } from "@/components/collab/CommentThread";
 import { ShareDialog } from "@/components/collab/ShareDialog";
 import { TaskTimeSection } from "@/components/time/TaskTimeSection";
 import { ResourceSharingDialog } from "@/components/work/ResourceSharingDialog";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Avatar } from "@/components/ui/Avatar";
 import { AttachmentPreview } from "@/components/ui/AttachmentPreview";
 import { Button } from "@/components/ui/Button";
@@ -324,16 +325,21 @@ export function TaskDetailPanel({
         tabIndex={-1}
         className="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col overflow-hidden border-l border-border bg-card shadow-2xl outline-none sm:w-[42rem] pv-animate-drawer-right"
       >
-        <header className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {/* Watch, the overflow menu and Close, in that order, at every width. The eight buttons that
+            used to sit here needed ~750px and the drawer is 672px, so on a desktop the tail of the row
+            was already being clipped by the panel's own `overflow-hidden` — on a phone that took Close
+            with it and left no way out of the panel at all. Only Watch keeps a label (it is the one
+            control whose state you want to read at a glance); everything else moves into the menu. */}
+        <header className="flex items-start justify-between gap-2 border-b border-border px-4 py-3 sm:px-5 sm:py-4">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {task?.sequence ?? "Task"}
             </p>
-            <h2 id="task-detail-title" className="text-lg font-semibold">
+            <h2 id="task-detail-title" className="truncate text-base font-semibold sm:text-lg">
               Task details
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button
               type="button"
               variant={isWatching ? "primary" : "outline"}
@@ -347,104 +353,92 @@ export function TaskDetailPanel({
             >
               {isWatching ? "Watching" : "Watch"}
             </Button>
+            <ActionMenu
+              label="More task actions"
+              items={[
+                { label: "Share…", onSelect: () => setShareOpen(true), disabled: !task },
+                { label: "Sharing…", onSelect: () => setAclSharingOpen(true), disabled: !task },
+                {
+                  label: task?.isPrivate ? "Make public" : "Make private",
+                  pressed: task?.isPrivate,
+                  disabled: !task || togglePrivate.isPending,
+                  onSelect: () => task && togglePrivate.mutate(!task.isPrivate),
+                },
+                {
+                  label: duplicate.isPending ? "Duplicating…" : "Duplicate",
+                  disabled: !task || duplicate.isPending,
+                  onSelect: () => taskId && duplicate.mutate(taskId),
+                },
+                {
+                  label:
+                    archive.isPending || unarchive.isPending
+                      ? "Saving…"
+                      : task?.isArchived
+                        ? "Unarchive"
+                        : "Archive",
+                  pressed: task?.isArchived,
+                  disabled: !task || archive.isPending || unarchive.isPending,
+                  onSelect: () =>
+                    taskId && (task?.isArchived ? unarchive.mutate(taskId) : archive.mutate(taskId)),
+                },
+                {
+                  label: "Delete task",
+                  destructive: true,
+                  disabled: !task,
+                  onSelect: () => setConfirmDeleteId(taskId),
+                },
+              ]}
+            />
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              disabled={!task}
-              onClick={() => setShareOpen(true)}
+              aria-label="Close task details"
+              title="Close task details"
+              className="size-9 px-0"
+              onClick={closePanel}
             >
-              Share
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!task}
-              onClick={() => setAclSharingOpen(true)}
-            >
-              Sharing…
-            </Button>
-            <Button
-              type="button"
-              variant={task?.isPrivate ? "primary" : "outline"}
-              size="sm"
-              aria-pressed={task?.isPrivate}
-              disabled={!task || togglePrivate.isPending}
-              onClick={() => task && togglePrivate.mutate(!task.isPrivate)}
-            >
-              {task?.isPrivate ? "Private" : "Make private"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!task || duplicate.isPending}
-              onClick={() => taskId && duplicate.mutate(taskId)}
-            >
-              {duplicate.isPending ? "Duplicating…" : "Duplicate"}
-            </Button>
-            <Button
-              type="button"
-              variant={task?.isArchived ? "primary" : "outline"}
-              size="sm"
-              aria-pressed={task?.isArchived}
-              disabled={!task || archive.isPending || unarchive.isPending}
-              onClick={() => taskId && (task?.isArchived ? unarchive.mutate(taskId) : archive.mutate(taskId))}
-            >
-              {archive.isPending || unarchive.isPending
-                ? "Saving…"
-                : task?.isArchived
-                  ? "Archived"
-                  : "Archive"}
-            </Button>
-            {confirmingDelete ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-red-300 text-red-700 dark:border-red-900 dark:text-red-400"
-                  disabled={removeTask.isPending}
-                  onClick={() =>
-                    taskId &&
-                    removeTask.mutate(taskId, {
-                      onSuccess: () => {
-                        setDeletedTaskId(taskId);
-                        setConfirmDeleteId(null);
-                        closePanel();
-                      },
-                    })
-                  }
-                >
-                  Confirm delete
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setConfirmDeleteId(null)}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-red-600 hover:text-red-700 dark:text-red-400"
-                disabled={!task}
-                onClick={() => setConfirmDeleteId(taskId)}
-              >
-                Delete
-              </Button>
-            )}
-            <Button type="button" variant="ghost" size="sm" onClick={closePanel}>
-              Close
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
             </Button>
           </div>
         </header>
+        {/* Its own strip rather than two more header buttons: the confirmation has to stay reachable
+            at any width, and the header no longer has room to grow. */}
+        {confirmingDelete ? (
+          <div
+            role="alertdialog"
+            aria-label="Confirm task deletion"
+            className="flex flex-wrap items-center justify-between gap-2 border-b border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300 sm:px-5"
+          >
+            <span>Delete this task?</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-red-300 text-red-700 dark:border-red-900 dark:text-red-400"
+                disabled={removeTask.isPending}
+                onClick={() =>
+                  taskId &&
+                  removeTask.mutate(taskId, {
+                    onSuccess: () => {
+                      setDeletedTaskId(taskId);
+                      setConfirmDeleteId(null);
+                      closePanel();
+                    },
+                  })
+                }
+              >
+                Confirm delete
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : null}
         {/* `useTaskMutations` rolls the optimistic edit back on failure but says nothing, so a
             rename that never reached the API just silently reverted. Outside the query branches
             below so it survives the panel dropping into its "unable to load" state. */}
@@ -463,7 +457,7 @@ export function TaskDetailPanel({
             Unable to load this task.
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto px-5 py-5">
+          <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5">
             <div className="space-y-5">
               <div className="grid gap-2">
                 <label htmlFor="task-title" className="text-sm font-medium">

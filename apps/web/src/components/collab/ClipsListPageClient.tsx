@@ -174,7 +174,7 @@ export function ClipsListPageClient() {
           </h2>
         </header>
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="w-full min-w-[56rem] text-left text-sm">
             <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-semibold">Title</th>
