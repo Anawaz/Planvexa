@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTheme, type Theme } from "@/app/providers";
 import { apiClient } from "@/lib/api-client";
@@ -201,7 +202,13 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
           </div>
         </details>
       </div>
-      {mobileNavOpen ? (
+      {/* Portalled to <body> rather than rendered here, because this header carries `backdrop-blur`
+          and an element with a backdrop-filter establishes a containing block for its fixed-position
+          descendants. Left in place, `fixed inset-0` resolved against the header's own ~250px box
+          instead of the viewport, so the drawer was cropped a third of the way down the screen and
+          the backdrop never covered the page. */}
+      {mobileNavOpen
+        ? createPortal(
         <div className="fixed inset-0 z-50 lg:hidden" role="presentation">
           <button
             type="button"
@@ -232,8 +239,10 @@ export function Topbar({ searchOpen, onOpenSearch }: TopbarProps) {
               onNavigate={() => setMobileNavOpen(false)}
             />
           </aside>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+      )
+        : null}
     </header>
   );
 }

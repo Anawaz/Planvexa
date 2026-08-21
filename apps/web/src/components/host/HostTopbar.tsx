@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { HostSidebarNavigation, HostWordmark } from "./HostSidebar";
 
@@ -53,7 +54,12 @@ export function HostTopbar() {
           sticky header, so it stays visible while scrolling rather than being a banner you scroll past. */}
       <div className="h-0.5 bg-amber-500" aria-hidden="true" />
 
-      {mobileNavOpen ? (
+      {/* Portalled to <body> for the same reason as the workspace Topbar's drawer: this header has
+          `backdrop-blur`, and a backdrop-filter makes the element a containing block for fixed
+          descendants — so `fixed inset-0` measured the header, not the viewport, and the drawer was
+          cropped to a strip near the top of the screen. */}
+      {mobileNavOpen
+        ? createPortal(
         <div className="fixed inset-0 z-50 lg:hidden" role="presentation">
           <button
             type="button"
@@ -76,8 +82,10 @@ export function HostTopbar() {
             </div>
             <HostSidebarNavigation className="flex-1 px-4 py-4" onNavigate={() => setMobileNavOpen(false)} />
           </aside>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+      )
+        : null}
     </header>
   );
 }
