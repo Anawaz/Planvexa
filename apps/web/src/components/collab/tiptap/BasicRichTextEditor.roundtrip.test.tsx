@@ -75,6 +75,37 @@ describe("markdown round trip", () => {
     expect(result).toContain("https://example.test");
   });
 
+  it("preserves underline, superscript and subscript as HTML tags", () => {
+    // Markdown has no syntax for these three, so they round-trip as the HTML tags GitHub and GitLab
+    // also accept. This is the entire reason the Markdown extension runs with html: true — if that is
+    // ever turned off, these three toolbar buttons start eating content and must be removed with it.
+    expect(roundTrip("<u>under</u>")).toContain("<u>under</u>");
+    expect(roundTrip("x<sup>2</sup>")).toContain("<sup>2</sup>");
+    expect(roundTrip("H<sub>2</sub>O")).toContain("<sub>2</sub>");
+  });
+
+  it("preserves an image", () => {
+    const result = roundTrip("![alt text](https://example.test/a.png)");
+
+    expect(result).toContain("![alt text](https://example.test/a.png)");
+  });
+
+  it("preserves nested list indentation", () => {
+    // What the Indent/Outdent buttons produce. Flattening on save would quietly restructure the list.
+    expect(roundTrip("- a\n  - b")).toContain("  - b");
+  });
+
+  it("does not turn unknown HTML into markup — which is why there is no Collapsible section", () => {
+    // Regression guard on both a deliberate omission and a security property: html: true is not a raw
+    // passthrough. ProseMirror parses into this schema, so a tag with no node (like <details>) reduces
+    // to its text content instead of being preserved or executed.
+    const result = roundTrip("<details><summary>More</summary>\n\nhidden\n\n</details>");
+
+    expect(result).not.toContain("<details>");
+    expect(result).toContain("More");
+    expect(result).toContain("hidden");
+  });
+
   it("drops nothing when the whole toolbar's output is combined", () => {
     // The realistic worst case: one document using every block the toolbar can produce. Anything the
     // serializer cannot handle shows up here as a missing marker rather than as a support ticket.

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Rendered markdown (task descriptions, comments, the editor itself) is marked up with `prose`.
+   Without this plugin those classes do nothing, and Tailwind's preflight flattens every heading,
+   list and blockquote back to looking exactly like plain text — which is why formatted comments
+   appeared unformatted. */
+@plugin "@tailwindcss/typography";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {

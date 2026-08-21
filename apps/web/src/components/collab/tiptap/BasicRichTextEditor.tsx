@@ -12,8 +12,9 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId, useMemberDirectory, useMembers } from "@/lib/members";
-import { BasicToolbar, EditorFooter } from "./BasicToolbar";
+import { BasicToolbar, EditorFooter, EditorTabs, type EditorMode } from "./BasicToolbar";
 import { createEditorExtensions } from "./editorExtensions";
+import { MarkdownPreview } from "./MarkdownPreview";
 import { MentionExtension } from "./mentionExtension";
 import type { MentionListItem } from "./MentionList";
 import { createMentionSuggestion } from "./mentionSuggestion";
@@ -44,9 +45,10 @@ export function BasicRichTextEditor({
   className,
   onAttachFile,
 }: BasicRichTextEditorProps) {
-  // The plain-text escape hatch. Raw markdown is kept in its own state while the mode is on and pushed
-  // into the editor when switching back, so the two views never fight over one source of truth.
-  const [plainText, setPlainText] = useState(false);
+  // Rich text, raw markdown, or a read-only preview. Raw markdown is kept in its own state while that
+  // mode is active and pushed back into the editor on the way out, so the two surfaces never fight
+  // over one source of truth.
+  const [mode, setMode] = useState<EditorMode>("rich");
   const [plainTextValue, setPlainTextValue] = useState(value);
   const { data: members } = useMembers();
   const directory = useMemberDirectory();
@@ -88,7 +90,7 @@ export function BasicRichTextEditor({
           role: "textbox",
           "aria-multiline": "true",
           "aria-label": ariaLabel,
-          class: cn("prose prose-sm max-w-none text-sm leading-6 outline-none", minHeightClassName),
+          class: cn("prose prose-sm dark:prose-invert max-w-none text-sm leading-6 outline-none", minHeightClassName),
         },
       },
       onUpdate: ({ editor: current }) => {
@@ -110,21 +112,30 @@ export function BasicRichTextEditor({
     return null;
   }
 
-  // The null guard above already returned, but that narrowing does not reach into the closure below.
+  // The null guard above already returned, but that narrowing does not reach into the closures below.
   const activeEditor = editor;
 
-  function togglePlainText() {
-    if (plainText) {
-      // Back to rich text: parse whatever was typed as markdown, and re-emit so the caller's draft
-      // matches what the editor now holds.
+  /** The live markdown, from whichever surface currently owns the content. */
+  function currentMarkdown() {
+    return mode === "plain" ? plainTextValue : (activeEditor.storage.markdown.getMarkdown() as string);
+  }
+
+  function switchTo(next: EditorMode) {
+    if (next === mode) return;
+
+    // Leaving the raw-markdown surface: parse what was typed back into the document, and re-emit so
+    // the caller's draft matches what the editor now holds.
+    if (mode === "plain") {
       activeEditor.commands.setContent(plainTextValue);
       onChange?.(activeEditor.storage.markdown.getMarkdown() as string, []);
-      setPlainText(false);
-      return;
     }
 
-    setPlainTextValue(activeEditor.storage.markdown.getMarkdown() as string);
-    setPlainText(true);
+    // Entering it: seed it from the document.
+    if (next === "plain") {
+      setPlainTextValue(activeEditor.storage.markdown.getMarkdown() as string);
+    }
+
+    setMode(next);
   }
 
   return (
@@ -135,19 +146,21 @@ export function BasicRichTextEditor({
         className,
       )}
     >
-      {editable && !plainText ? (
-        <BasicToolbar
-          editor={editor}
-          onAttachFile={onAttachFile}
-          className="border-b border-border px-2 py-1.5"
-        />
+      {editable ? (
+        <EditorTabs mode={mode} onSelect={switchTo} />
       ) : null}
 
-      <div className={cn("px-3 py-2", plainText && "hidden")}>
+      {editable && mode === "rich" ? (
+        <BasicToolbar editor={editor} onAttachFile={onAttachFile} className="border-b border-border" />
+      ) : null}
+
+      {/* Kept mounted but hidden in the other modes: unmounting the editor would throw away the undo
+          history and the cursor position every time someone glanced at the preview. */}
+      <div className={cn("px-3 py-2", editable && mode !== "rich" && "hidden")}>
         <EditorContent editor={editor} />
       </div>
 
-      {editable && plainText ? (
+      {editable && mode === "plain" ? (
         <textarea
           aria-label={`${ariaLabel} (markdown)`}
           value={plainTextValue}
@@ -164,7 +177,20 @@ export function BasicRichTextEditor({
         />
       ) : null}
 
-      {editable ? <EditorFooter plainText={plainText} onTogglePlainText={togglePlainText} /> : null}
+      {editable && mode === "preview" ? (
+        <MarkdownPreview
+          markdown={currentMarkdown()}
+          className="px-3 py-2"
+          minHeightClassName={minHeightClassName}
+        />
+      ) : null}
+
+      {editable ? (
+        <EditorFooter
+          plainText={mode === "plain"}
+          onTogglePlainText={() => switchTo(mode === "plain" ? "rich" : "plain")}
+        />
+      ) : null}
     </div>
   );
 }
