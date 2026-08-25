@@ -45,15 +45,27 @@ public sealed class PdfExportService(ReportingServiceContext ctx, PortfolioServi
 
         public byte[]? GetFont(string faceName)
         {
-            var paths = faceName == BoldFace ? BoldFontPaths : RegularFontPaths;
+            var (fontStyle, paths) = faceName switch
+            {
+                RegularFace => ("regular", RegularFontPaths),
+                BoldFace => ("bold", BoldFontPaths),
+                _ => throw new ArgumentException($"Unsupported PDF export font face '{faceName}'.", nameof(faceName)),
+            };
+
             var path = paths.FirstOrDefault(File.Exists)
-                ?? throw new FileNotFoundException(
-                    $"No PDF export font was found. Checked: {string.Join(", ", paths)}");
+                ?? throw new FileNotFoundException($"No configured {fontStyle} PDF export font was found.");
             return File.ReadAllBytes(path);
         }
 
         public FontResolverInfo ResolveTypeface(string familyName, bool isBold, bool isItalic)
-            => new(isBold ? BoldFace : RegularFace);
+        {
+            if (isItalic)
+            {
+                throw new InvalidOperationException("Italic PDF export fonts are not configured.");
+            }
+
+            return new(isBold ? BoldFace : RegularFace);
+        }
     }
 
     public async Task<byte[]> PortfolioPdfAsync(DateTimeOffset? fromUtc, DateTimeOffset? toUtc, CancellationToken ct)
