@@ -350,7 +350,7 @@ jobs:
       # runtime, node:alpine) carry upstream CVEs this repo does not control and a hard-fail here would go
       # permanently red rather than being actionable. Scoped to CRITICAL/HIGH to keep the report useful.
       - name: Scan API image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: planvexa-api:ci
           format: sarif
@@ -359,7 +359,7 @@ jobs:
           exit-code: "0"
 
       - name: Scan web image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: planvexa-web:ci
           format: sarif
