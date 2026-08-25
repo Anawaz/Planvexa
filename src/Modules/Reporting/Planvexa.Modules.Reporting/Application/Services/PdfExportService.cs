@@ -53,7 +53,8 @@ public sealed class PdfExportService(ReportingServiceContext ctx, PortfolioServi
             };
 
             var path = paths.FirstOrDefault(File.Exists)
-                ?? throw new FileNotFoundException($"No configured {fontStyle} PDF export font was found.");
+                ?? throw new FileNotFoundException(
+                    $"No configured {fontStyle} PDF export font was found for face '{faceName}'. Ensure Segoe UI (Windows) or fonts-dejavu-core (Linux) is installed.");
             return File.ReadAllBytes(path);
         }
 
