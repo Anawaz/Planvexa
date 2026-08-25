@@ -367,12 +367,19 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "0"
 
-      - name: Upload Trivy results to Security tab
+      - name: Upload API Trivy results to Security tab
         if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: .
-          category: trivy-container-scan
+          sarif_file: trivy-api.sarif
+          category: trivy-api-container-scan
+
+      - name: Upload web Trivy results to Security tab
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web-container-scan
 
       # SBOM generation (anchore/sbom-action wraps syft, Apache-2.0) for both published images. Uploaded
       # as build artifacts rather than a registry attestation since these images are not pushed anywhere.

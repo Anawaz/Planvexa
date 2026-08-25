@@ -15,30 +15,41 @@ using Planvexa.Modules.Reporting.Authorization;
 /// option) is not reasonable for real output, so a real library is used, matching the brief's guidance.
 /// Font resolution: PDFsharp 6's Core build ships no fonts and needs an <c>IFontResolver</c> to draw any
 /// text at all (<see cref="GlobalFontSettings.UseWindowsFontsUnderWindows"/> alone was not sufficient in
-/// practice — XFont still threw "No appropriate font found"). <see cref="WindowsFontFileResolver"/> reads
-/// Segoe UI directly from <c>C:\Windows\Fonts</c>, which is correct for where this runs today (Windows
-/// dev/test). ponytail: production API containers are Linux (AGENTS.md's docker/helm targets), which this
-/// does not cover — bundle a real embedded TTF (e.g. DejaVu Sans, permissively licensed) behind a second
-/// <c>IFontResolver</c> branch when this ships to a Linux target.
+/// practice — XFont still threw "No appropriate font found"). <see cref="CrossPlatformFontFileResolver"/>
+/// uses Segoe UI on Windows and DejaVu Sans on Linux. The API image installs <c>fonts-dejavu-core</c> so the
+/// production container and Linux CI use the same deterministic fallback.
 /// </summary>
 public sealed class PdfExportService(ReportingServiceContext ctx, PortfolioService portfolio) : ReportingServiceBase(ctx)
 {
     static PdfExportService()
     {
-        GlobalFontSettings.FontResolver ??= new WindowsFontFileResolver();
+        GlobalFontSettings.FontResolver ??= new CrossPlatformFontFileResolver();
     }
 
-    private sealed class WindowsFontFileResolver : IFontResolver
+    private sealed class CrossPlatformFontFileResolver : IFontResolver
     {
-        private const string RegularFace = "SegoeUI";
-        private const string BoldFace = "SegoeUI#b";
+        private const string RegularFace = "PlanvexaSans";
+        private const string BoldFace = "PlanvexaSans#b";
+
+        private static readonly string[] RegularFontPaths =
+        [
+            @"C:\Windows\Fonts\segoeui.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ];
+
+        private static readonly string[] BoldFontPaths =
+        [
+            @"C:\Windows\Fonts\segoeuib.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        ];
 
         public byte[]? GetFont(string faceName)
         {
-            var path = faceName == BoldFace
-                ? @"C:\Windows\Fonts\segoeuib.ttf"
-                : @"C:\Windows\Fonts\segoeui.ttf";
-            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+            var paths = faceName == BoldFace ? BoldFontPaths : RegularFontPaths;
+            var path = paths.FirstOrDefault(File.Exists)
+                ?? throw new FileNotFoundException(
+                    $"No PDF export font was found. Checked: {string.Join(", ", paths)}");
+            return File.ReadAllBytes(path);
         }
 
         public FontResolverInfo ResolveTypeface(string familyName, bool isBold, bool isItalic)

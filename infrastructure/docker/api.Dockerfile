@@ -25,7 +25,7 @@ WORKDIR /app
 # services (which open their own connections outside the request pipeline) crashing with
 # "libgssapi_krb5.so.2: cannot open shared object file" instead of a clear startup error.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
+    && apt-get install -y --no-install-recommends fonts-dejavu-core libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 LABEL org.opencontainers.image.title="Planvexa API" \
       org.opencontainers.image.vendor="Planvexa contributors" \
