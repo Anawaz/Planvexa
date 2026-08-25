@@ -1,7 +1,17 @@
 name: CI
 
 on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -10,6 +20,7 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18
@@ -60,10 +71,12 @@ jobs:
           name: backend-test-results
           path: TestResults/**/*.trx
           if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,6 +126,7 @@ jobs:
   e2e:
     name: End-to-end
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:18
@@ -293,10 +307,12 @@ jobs:
             api.log
             web.log
           if-no-files-found: ignore
+          retention-days: 7
 
   docker:
     name: Docker images
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       security-events: write
@@ -334,7 +350,7 @@ jobs:
       # runtime, node:alpine) carry upstream CVEs this repo does not control and a hard-fail here would go
       # permanently red rather than being actionable. Scoped to CRITICAL/HIGH to keep the report useful.
       - name: Scan API image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: planvexa-api:ci
           format: sarif
@@ -343,7 +359,7 @@ jobs:
           exit-code: "0"
 
       - name: Scan web image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: planvexa-web:ci
           format: sarif
@@ -351,12 +367,19 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "0"
 
-      - name: Upload Trivy results to Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
+      - name: Upload API Trivy results to Security tab
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: .
-          category: trivy-container-scan
+          sarif_file: trivy-api.sarif
+          category: trivy-api-container-scan
+
+      - name: Upload web Trivy results to Security tab
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-web.sarif
+          category: trivy-web-container-scan
 
       # SBOM generation (anchore/sbom-action wraps syft, Apache-2.0) for both published images. Uploaded
       # as build artifacts rather than a registry attestation since these images are not pushed anywhere.
@@ -381,10 +404,12 @@ jobs:
           path: |
             sbom-api.spdx.json
             sbom-web.spdx.json
+          retention-days: 14
 
   security:
     name: Security
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: read

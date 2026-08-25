@@ -72,6 +72,12 @@ own licences; they are not relicensed by Planvexa.
 | typescript | 5.9.3 | Apache-2.0 | https://github.com/microsoft/TypeScript.git |
 | vitest | 4.1.10 | MIT | https://github.com/vitest-dev/vitest.git |
 
+## Container runtime packages
+
+| Component | Version | Licence | Purpose | Source |
+| --- | --- | --- | --- | --- |
+| fonts-dejavu-core | Distribution-managed | Bitstream Vera and DejaVu licences | Deterministic PDF export fonts in the Linux API image | https://packages.debian.org/fonts-dejavu-core |
+
 ## Required notices
 
 - Preserve upstream licence texts and notices distributed with third-party packages and container images.
