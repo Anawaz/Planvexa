@@ -42,6 +42,25 @@ policies) has been fully removed — Workspace is the sole isolation boundary en
 19. Do not suppress failing tests to call work complete.
 20. Update documentation before declaring work complete.
 
+## Repository delivery policy
+
+- `main` is protected by the active GitHub ruleset **Protect main (PR + review)**. There is no
+  classic branch-protection rule alongside it.
+- Never commit or push directly to `main`. Work on a topic branch and open a pull request targeting
+  `main`; Codex-authored branches use `codex/<short-description>` unless the user requests another
+  name.
+- The ruleset applies to administrators and has no bypass actors. It blocks branch deletion and
+  force-pushes, requires one approving review, requires approval of the most recent reviewable push
+  by someone other than its pusher, and requires all review conversations to be resolved.
+- CI and CodeQL must run automatically for pull requests targeting `main` and for changes that land
+  on `main`. Required checks must be green before merge. Never disable, weaken, or bypass a workflow
+  or repository rule to merge a change.
+- Keep workflow permissions least-privileged. Do not use `pull_request_target` to execute untrusted
+  pull-request code, do not expose secrets to forked pull requests, and pin new third-party Actions
+  to an auditable release or full commit SHA.
+- A pull request cannot be merged by its sole author under the configured rules. If no eligible
+  reviewer is available, report that constraint; do not weaken the ruleset as a workaround.
+
 ## Architecture invariants
 
 - **Modular monolith.** Modules live under `src/Modules/*`. A module must not read or write another

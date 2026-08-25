@@ -1,7 +1,17 @@
 name: CI
 
 on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -10,6 +20,7 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:18
@@ -60,10 +71,12 @@ jobs:
           name: backend-test-results
           path: TestResults/**/*.trx
           if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,6 +126,7 @@ jobs:
   e2e:
     name: End-to-end
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     services:
       postgres:
         image: postgres:18
@@ -293,10 +307,12 @@ jobs:
             api.log
             web.log
           if-no-files-found: ignore
+          retention-days: 7
 
   docker:
     name: Docker images
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       security-events: write
@@ -352,7 +368,7 @@ jobs:
           exit-code: "0"
 
       - name: Upload Trivy results to Security tab
-        if: always()
+        if: ${{ always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: .
@@ -381,10 +397,12 @@ jobs:
           path: |
             sbom-api.spdx.json
             sbom-web.spdx.json
+          retention-days: 14
 
   security:
     name: Security
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: read
